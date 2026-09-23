@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: jobpilot-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jobpilot
+    username: jobpilot
+    password: ${DB_PASSWORD:jobpilot}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+jobpilot:
+  jwt:
+    secret: ${JWT_SECRET:dev_only_secret_change_me_dev_only_secret_change_me}
+    access-token-ttl-minutes: 15
+    refresh-token-ttl-days: 7
+  cors:
+    allowed-origins: http://localhost:4200
