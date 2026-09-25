@@ -14,8 +14,11 @@ services:
       interval: 5s
       retries: 10
 
+  # Ollama in Docker (CPU unless the GPU block is enabled). Opt-in via COMPOSE_PROFILES=docker-ollama;
+  # otherwise the backend uses OLLAMA_BASE_URL, e.g. a native Ollama on the host (see .env.example).
   ollama:
     image: ollama/ollama:latest
+    profiles: ["docker-ollama"]
     volumes:
       - ollama:/root/.ollama
     ports:
@@ -31,6 +34,7 @@ services:
 
   ollama-init:            # pulls models once (several GB on first run)
     image: ollama/ollama:latest
+    profiles: ["docker-ollama"]
     depends_on: [ollama]
     environment:
       OLLAMA_HOST: http://ollama:11434
@@ -47,11 +51,16 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+        required: false       # absent when using a native Ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/jobpilot
       SPRING_DATASOURCE_USERNAME: jobpilot
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.1:8b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       STORAGE_DIR: /app/storage

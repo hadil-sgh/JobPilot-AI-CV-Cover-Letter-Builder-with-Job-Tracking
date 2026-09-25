@@ -9,34 +9,58 @@ import { errorMessage } from '../../core/http/api-error';
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink],
   template: `
-    <main class="auth-page">
-      <section class="auth-card">
-        <div class="brand"><span class="brand-mark">JP</span> JobPilot</div>
-        <h1>Welcome back</h1>
-        <p class="muted">Sign in to tailor your next application.</p>
+    <div class="container-xxl">
+      <div class="authentication-wrapper authentication-basic container-p-y">
+        <div class="authentication-inner">
+          <div class="card">
+            <div class="card-body">
+              <div class="app-brand justify-content-center">
+                <a routerLink="/login" class="app-brand-link gap-2">
+                  <span class="app-brand-logo demo"><span class="app-brand-mark bg-primary"><i class="bx bxs-paper-plane"></i></span></span>
+                  <span class="app-brand-text demo text-body fw-bolder text-capitalize">JobPilot</span>
+                </a>
+              </div>
+              <h4 class="mb-2">Welcome back! 👋</h4>
+              <p class="mb-4">Sign in to tailor your next application.</p>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <label class="field">
-            <span>Email</span>
-            <input type="email" formControlName="email" autocomplete="email" />
-          </label>
-          <label class="field">
-            <span>Password</span>
-            <input type="password" formControlName="password" autocomplete="current-password" />
-          </label>
+              <form class="mb-3" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+                <div class="mb-3">
+                  <label for="email" class="form-label">Email</label>
+                  <input id="email" type="email" class="form-control" formControlName="email"
+                         placeholder="Enter your email" autocomplete="email" autofocus />
+                </div>
+                <div class="mb-3 form-password-toggle">
+                  <label class="form-label" for="password">Password</label>
+                  <div class="input-group input-group-merge">
+                    <input id="password" class="form-control" formControlName="password"
+                           [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password"
+                           placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;" />
+                    <span class="input-group-text cursor-pointer" role="button"
+                          [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                          (click)="showPassword.set(!showPassword())">
+                      <i class="bx" [class.bx-hide]="!showPassword()" [class.bx-show]="showPassword()"></i>
+                    </span>
+                  </div>
+                </div>
 
-          @if (error()) {
-            <p class="alert" role="alert">{{ error() }}</p>
-          }
+                @if (error()) {
+                  <div class="alert alert-danger py-2" role="alert">{{ error() }}</div>
+                }
 
-          <button class="btn btn-primary btn-block" type="submit" [disabled]="form.invalid || loading()">
-            {{ loading() ? 'Signing in…' : 'Sign in' }}
-          </button>
-        </form>
+                <button class="btn btn-primary d-grid w-100" type="submit" [disabled]="form.invalid || loading()">
+                  {{ loading() ? 'Signing in…' : 'Sign in' }}
+                </button>
+              </form>
 
-        <p class="muted small">No account yet? <a routerLink="/register">Create one</a></p>
-      </section>
-    </main>
+              <p class="text-center">
+                <span>New on JobPilot? </span>
+                <a routerLink="/register"><span>Create an account</span></a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   `,
 })
 export class Login {
@@ -46,6 +70,7 @@ export class Login {
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly showPassword = signal(false);
 
   readonly form = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

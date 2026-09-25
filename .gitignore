@@ -21,3 +21,6 @@ Thumbs.db
 # Runtime storage / generated output
 storage/
 *.log
+
+# Local Claude Code session config
+.claude/

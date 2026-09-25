@@ -1,161 +1,70 @@
 /*
- * JobPilot design tokens. Style reference: docs/style-reference.png (clean white admin UI,
- * slim icon rail, bold page titles, pastel status pills, blue accent, outlined action buttons).
+ * Visual style comes from the Sneat template CSS loaded in index.html (public/sneat).
+ * Use its Bootstrap 5 classes (card, btn, form-control, badge bg-label-*, table, menu-*).
+ * Only small app-specific additions live here.
  */
-:root {
-  --bg: #f7f8fa;
-  --surface: #ffffff;
-  --border: #e8eaef;
-  --text: #111827;
-  --text-muted: #8a8fa0;
-  --accent: #2563eb;
-  --accent-soft: #eef3ff;
-  --orange: #f59e0b;
-  --radius: 10px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-lift: 0 8px 24px rgba(16, 24, 40, 0.08);
 
-  /* Pastel status pills (bg / text), matching the reference table */
-  --pill-red-bg: #fde8e8;   --pill-red: #d64545;
-  --pill-green-bg: #dcf7ea; --pill-green: #1f9d63;
-  --pill-orange-bg: #fdefd9; --pill-orange: #c77700;
-  --pill-blue-bg: #e1ecff;  --pill-blue: #2f63d8;
-  --pill-purple-bg: #f1e6ff; --pill-purple: #8a3ee0;
-  --pill-pink-bg: #fde6f3;  --pill-pink: #c7338a;
-  --pill-gray-bg: #eef0f3;  --pill-gray: #6b7280;
-
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
-  color: var(--text);
+.app-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 0.5rem;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
-body { background: var(--bg); font-size: 14px; line-height: 1.5; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-h1, h2 { margin: 0; }
-h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
-h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
-
-.muted { color: var(--text-muted); margin: 0; }
-.small { font-size: 13px; }
-.sr-only {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+/* Menu items for features that arrive in later phases. */
+.menu-item.menu-disabled .menu-link {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
 }
 
-/* ---------- Buttons ---------- */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent;
-  font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; background: none; color: var(--text);
-  transition: background 0.15s, border-color 0.15s;
-}
-.btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:not(:disabled):hover { background: #1d4fd8; }
-.btn-outline { border-color: var(--border); background: var(--surface); }
-.btn-outline:not(:disabled):hover { border-color: #cfd4dd; }
-.btn-accent-outline { border-color: #c9d8fb; color: var(--accent); background: var(--surface); }
-.btn-ghost:hover { background: #f0f2f5; }
-.btn-block { width: 100%; }
-
-/* ---------- Forms ---------- */
-.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-.field > span { font-weight: 600; font-size: 13px; }
-.field input, .field textarea, .field select {
-  height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px;
-  font: inherit; background: var(--surface); color: var(--text);
-}
-.field input:focus, .field textarea:focus, .field select:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.hint { color: var(--text-muted); font-size: 12px; }
-.alert {
-  background: var(--pill-red-bg); color: var(--pill-red); border-radius: 8px;
-  padding: 10px 12px; margin: 0 0 14px; font-size: 13px;
+.menu-inner {
+  overflow-y: auto;
 }
 
-/* ---------- Pills ---------- */
-.pill {
-  display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
-  background: var(--pill-gray-bg); color: var(--pill-gray);
-}
-.pill-red { background: var(--pill-red-bg); color: var(--pill-red); }
-.pill-green { background: var(--pill-green-bg); color: var(--pill-green); }
-.pill-orange { background: var(--pill-orange-bg); color: var(--pill-orange); }
-.pill-blue { background: var(--pill-blue-bg); color: var(--pill-blue); }
-.pill-purple { background: var(--pill-purple-bg); color: var(--pill-purple); }
-.pill-pink { background: var(--pill-pink-bg); color: var(--pill-pink); }
-.pill-gray { background: var(--pill-gray-bg); color: var(--pill-gray); }
+/* Status pills in the navbar dropdown / tables use Sneat's .badge.bg-label-* classes. */
 
-/* ---------- Cards / page ---------- */
-.card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px;
-}
-.page-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  flex-wrap: wrap; margin-bottom: 20px;
-}
-.page-actions { display: flex; gap: 8px; }
-.status-row { display: flex; align-items: center; justify-content: space-between; max-width: 320px; }
-
-/* ---------- Shell (icon rail + topbar) ---------- */
-.shell { display: flex; min-height: 100vh; }
-.rail {
-  width: 60px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
-  display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 6px;
-  position: sticky; top: 0; height: 100vh;
-}
-.rail nav { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
-.rail-brand {
-  width: 34px; height: 34px; border-radius: 9px; background: var(--accent); color: #fff;
-  display: grid; place-items: center; font-weight: 800; font-size: 13px;
-}
-.rail-brand:hover { text-decoration: none; }
-.rail-item {
-  width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center;
-  color: #9aa0ad; border: none; background: none; cursor: pointer;
-}
-.rail-item svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8;
-  stroke-linecap: round; stroke-linejoin: round; }
-.rail-item:hover { background: #f2f4f7; color: var(--text); text-decoration: none; }
-.rail-item.active { background: var(--accent-soft); color: var(--accent); }
-.rail-item.disabled { opacity: 0.4; cursor: default; }
-.rail-item.disabled:hover { background: none; color: #9aa0ad; }
-.rail-bottom { margin-top: auto; }
-
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.topbar {
-  height: 56px; display: flex; align-items: center; justify-content: flex-end;
-  padding: 0 28px; background: var(--surface); border-bottom: 1px solid var(--border);
-}
-.user { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-.avatar {
-  width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
-  display: grid; place-items: center; font-size: 12px; font-weight: 700;
-}
-.content { padding: 28px; max-width: 1200px; width: 100%; }
-
-/* ---------- Auth pages ---------- */
-.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
-.auth-card {
-  width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; box-shadow: var(--shadow-lift); padding: 32px;
-}
-.auth-card h1 { font-size: 24px; margin-top: 18px; }
-.auth-card > .muted { margin: 4px 0 22px; }
-.auth-card > .small { margin-top: 18px; text-align: center; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; }
-.brand-mark {
-  width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff;
-  display: grid; place-items: center; font-size: 12px;
+/* Avatar with initials (Sneat .avatar-initial needs a sized .avatar parent). */
+.avatar .avatar-initial {
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
-@media (max-width: 640px) {
-  .rail { width: 52px; }
-  .content { padding: 16px; }
-  .topbar { padding: 0 16px; }
-  h1 { font-size: 22px; }
+/* Page title row: title left, actions right (Sneat has no ready-made class for this). */
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-title-row h4 {
+  margin: 0;
+}
+
+/* Sneat's mobile menu overlay: show when the layout-menu-expanded class is on <html>. */
+.layout-menu-expanded .layout-overlay {
+  display: block;
+}
+
+.dropdown-menu.show {
+  display: block;
+  position: absolute;
+  inset: 100% 0 auto auto;
+}
+
+.white-space-pre-line {
+  white-space: pre-line;
+}
+
+/* Sneat badges are uppercase; skills, links and languages keep their real casing. */
+.badge.text-none {
+  text-transform: none;
+  font-weight: 500;
 }

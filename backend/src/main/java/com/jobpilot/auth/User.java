@@ -55,6 +55,10 @@ public class User {
         return fullName;
     }
 
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

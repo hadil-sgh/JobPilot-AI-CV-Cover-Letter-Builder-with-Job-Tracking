@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth/auth.service';
 
@@ -7,31 +8,43 @@ type Health = 'checking' | 'up' | 'down';
 
 @Component({
   selector: 'app-dashboard',
+  imports: [RouterLink],
   template: `
-    <div class="page-header">
-      <h1>Dashboard</h1>
-      <div class="page-actions">
-        <button class="btn btn-outline" type="button" disabled title="Coming in phase 4">New application</button>
+    <div class="row">
+      <div class="col-lg-8 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title text-primary">Welcome, {{ auth.user()?.fullName || auth.user()?.email }}! 🎉</h5>
+            <p class="mb-4">
+              Start by importing your CV: JobPilot turns it into a structured master profile that every
+              tailored CV and letter is built from.
+            </p>
+            <a routerLink="/profile" class="btn btn-sm btn-outline-primary">Build my profile</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center mb-3">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-success"><i class="bx bx-server"></i></span>
+              </div>
+              <span class="fw-semibold">System status</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span>Backend API</span>
+              @switch (health()) {
+                @case ('up') { <span class="badge bg-label-success">Up</span> }
+                @case ('down') { <span class="badge bg-label-danger">Down</span> }
+                @default { <span class="badge bg-label-secondary">Checking</span> }
+              }
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <section class="card">
-      <h2>Hi {{ auth.user()?.fullName || auth.user()?.email }}</h2>
-      <p class="muted">
-        Your account is ready. Next up: upload your CV to build your master profile (Phase 2).
-      </p>
-    </section>
-
-    <section class="card">
-      <h2>System status</h2>
-      <div class="status-row">
-        <span>Backend API</span>
-        <span class="pill" [class.pill-green]="health() === 'up'" [class.pill-red]="health() === 'down'"
-              [class.pill-gray]="health() === 'checking'">
-          {{ health() === 'checking' ? 'Checking' : health() === 'up' ? 'Up' : 'Down' }}
-        </span>
-      </div>
-    </section>
   `,
 })
 export class Dashboard {

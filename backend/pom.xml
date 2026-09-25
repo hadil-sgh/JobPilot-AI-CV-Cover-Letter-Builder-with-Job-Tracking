@@ -20,7 +20,23 @@
     <properties>
         <java.version>17</java.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <spring-ai.version>1.0.3</spring-ai.version>
+        <tika.version>3.2.3</tika.version>
+        <pdfbox.version>3.0.5</pdfbox.version>
+        <poi.version>5.4.1</poi.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -76,6 +92,29 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- LLM (Ollama) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+
+        <!-- CV parsing: tika-core for file-type detection only; PDFBox / POI extract text -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>${tika.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
         <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -109,6 +148,18 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <jvmArguments>"-Djdk.net.unixdomain.tmpdir=${project.build.directory}"</jvmArguments>
+                </configuration>
+            </plugin>
+            <!-- On this Windows machine the JDK cannot open its NIO loopback pipe inside the 8.3
+                 short-name temp dir (C:/Users/HADILS~1/...). Point it at target/ instead. No effect on Linux. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>"-Djdk.net.unixdomain.tmpdir=${project.build.directory}"</argLine>
+                </configuration>
             </plugin>
         </plugins>
     </build>

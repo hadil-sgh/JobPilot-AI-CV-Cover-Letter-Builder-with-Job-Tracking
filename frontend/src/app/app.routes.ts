@@ -4,6 +4,7 @@ import { authGuard, guestGuard } from './core/auth/auth.guards';
 import { Login } from './features/auth/login';
 import { Register } from './features/auth/register';
 import { Dashboard } from './features/dashboard/dashboard';
+import { ProfilePage } from './features/profile/profile-page';
 import { Shell } from './layout/shell';
 
 export const routes: Routes = [
@@ -13,7 +14,10 @@ export const routes: Routes = [
     path: '',
     component: Shell,
     canActivate: [authGuard],
-    children: [{ path: '', component: Dashboard, title: 'Dashboard · JobPilot' }],
+    children: [
+      { path: '', component: Dashboard, title: 'Dashboard · JobPilot' },
+      { path: 'profile', component: ProfilePage, title: 'Profile · JobPilot' },
+    ],
   },
   { path: '**', redirectTo: '' },
 ];

@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -37,6 +40,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex) {
         return ResponseEntity.badRequest().body(ErrorResponse.of(400, "Malformed request body"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ErrorResponse.of(413, "The file is larger than 5 MB"));
+    }
+
+    @ExceptionHandler({MissingServletRequestPartException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of(400, "Bad request"));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

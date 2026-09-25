@@ -341,6 +341,8 @@ users 1─* email_accounts
 | POST | `/api/auth/register`, `/login`, `/refresh` | Auth |
 | POST | `/api/profile/import` | Upload CV, parse, ingest to vector store |
 | GET/PUT | `/api/profile` | Read/update master profile |
+| POST · PUT/DELETE | `/api/profile/items` · `/api/profile/items/{id}` | Add / edit / delete one profile item *(as built, Phase 2)* |
+| PUT | `/api/profile/items/order` | Reorder one section *(as built, Phase 2)* |
 | POST | `/api/jobs/analyze` | Paste JD, get structured analysis |
 | POST | `/api/applications` | Create application (company, JD, metadata) |
 | GET | `/api/applications?status=&q=` | List/filter tracker |

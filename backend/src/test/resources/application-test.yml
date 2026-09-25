@@ -1,3 +1,4 @@
 jobpilot:
   jwt:
     secret: test-secret-test-secret-test-secret-0123456789
+  storage-dir: target/test-storage
