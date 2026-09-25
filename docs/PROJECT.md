@@ -344,6 +344,8 @@ users 1─* email_accounts
 | POST · PUT/DELETE | `/api/profile/items` · `/api/profile/items/{id}` | Add / edit / delete one profile item *(as built, Phase 2)* |
 | PUT | `/api/profile/items/order` | Reorder one section *(as built, Phase 2)* |
 | POST | `/api/jobs/analyze` | Paste JD, get structured analysis |
+| GET | `/api/jobs` · `/api/jobs/{id}` · `/api/jobs/{id}/evidence` | Recent analyses, one analysis, profile evidence per requirement *(as built, Phase 3)* |
+| GET · POST · GET | `/api/profile/index` · `/api/profile/reindex` · `/api/profile/search?q=` | Vector index status, rebuild, raw retrieval *(as built, Phase 3)* |
 | POST | `/api/applications` | Create application (company, JD, metadata) |
 | GET | `/api/applications?status=&q=` | List/filter tracker |
 | PATCH | `/api/applications/{id}` | Update status, notes, answers |

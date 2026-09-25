@@ -3,6 +3,64 @@
 Choices made where `docs/PROJECT.md` was silent, ambiguous, or could not be followed on this
 machine. Newest phase first.
 
+## Phase 3 — RAG core (2026-09-25)
+
+- **Own pgvector SQL instead of Spring AI `PgVectorStore`.** The schema (PROJECT.md 2.4) already
+  defines `profile_chunks` with `profile_id`/`item_id` foreign keys (cascade delete), while
+  `PgVectorStore` manages its own table layout. The doc's `filterExpression("profile_id == '" +
+  id + "'")` is also string concatenation. `ProfileChunkRepository` uses parameterised SQL with
+  `<=>` (cosine distance, matches the HNSW `vector_cosine_ops` index); similarity = 1 − distance.
+  Spring AI is still used for the `EmbeddingModel` (Ollama, nomic-embed-text).
+- **Chunks** (3.3): one per experience/project/education/certification, one per skill group, plus
+  "Profile summary" (headline + summary) and "Spoken languages" chunks. Self-contained text, so a
+  chunk reads well as evidence. Metadata: `{type, item_id, org, start, end, content_hash}`.
+- **Re-ingest on edit**: `ProfileChangedEvent` → `@TransactionalEventListener(AFTER_COMMIT)` +
+  `@Async` on a single-thread executor. Unchanged chunks (same SHA-256 of content) reuse their
+  stored embedding, so an edit re-embeds only what changed. Failures are logged; the old index
+  stays until the next change or `POST /api/profile/reindex`.
+- **Concurrent swaps**: automatic and manual re-index can overlap (a test caught duplicate
+  chunks). `replaceAll` takes `pg_advisory_xact_lock(hashtextextended(profile_id))` so
+  delete+insert per profile is serialised (also across backend instances).
+- **Hybrid retrieval instead of "cosine ≥ 0.55"** (measured with the real model on the sample
+  profile + sample JD). nomic-embed-text similarities sit in a narrow ~0.45–0.75 band and short
+  chunks (skill lists, one-line summary) behave badly: "Angular" → no evidence although it is a
+  listed skill (0.505), "Kubernetes" → the generic summary at 0.641 (false positive),
+  "Engineering degree" → a project ranked above the education entry. `RetrievalService` now:
+  takes the top-30 vector candidates, adds `0.35 × share of the requirement's key terms found in
+  the chunk` (`LexicalMatcher`: EN/FR stopwords + generic job-ad words like "experience",
+  "years", "fluent" ignored, plural folding, tech tokens like `c#`, `node.js`, `ci/cd` kept),
+  and keeps a chunk only if it shares ≥1 key term with similarity ≥ 0.45, or has similarity ≥ 0.70
+  alone. Top-4 by score. Result on the sample JD: 8/8 requirements correct (was 3/8).
+  `HybridRetrievalTest` pins the measured numbers. Evidence DTOs expose `similarity`, `score`
+  and `matchedTerms` so the UI can explain every match. Config: `jobpilot.rag.*`.
+- **JD language is not trusted from the model**: llama3 answered "fr" for an English offer that
+  asks for "fluent French". A clear EN/FR stop-word majority (≥ 5 hits and 2:1) wins; the model's
+  answer only breaks ties. The language drives the language of the generated CV/letter.
+- **nginx caching**: `index.html` (and the SPA fallback) is served with `Cache-Control: no-cache`,
+  hashed `main-*/polyfills-*/styles-*/chunk-*` files with a 1-year immutable cache. Without it the
+  browser kept an old `index.html` pointing at an old bundle after a deploy (seen in testing).
+- **Extra endpoints** (not in PROJECT.md): `GET /api/profile/index` (chunk count),
+  `POST /api/profile/reindex`, `GET /api/profile/search?q=` (raw top-k, no threshold) so the user
+  can see what the AI retrieves; `GET /api/jobs`, `GET /api/jobs/{id}`,
+  `GET /api/jobs/{id}/evidence` (per-requirement evidence — a preview of Phase 4 retrieval).
+- **JD sanitising** (3.7), `JdSanitizer`: HTML → text with jsoup (scripts/styles/iframes dropped,
+  list items kept as "- "), invisible/bidi/control characters removed, `<job>` delimiters
+  removed, lines that address the AI ("ignore previous instructions", "SYSTEM:", "reveal your
+  prompt"...) are **removed and reported** as warnings (shown in the UI). Limits: raw paste ≤
+  100k chars (may contain HTML), cleaned text 100–20,000 chars (≈5k tokens, leaves room for the
+  prompt and output in the 8k context). The doc says "about 8k tokens"; 8k would not fit.
+- **Prompt B** in `resources/prompts/jd-analysis-system.txt`. Output is cleaned by
+  `JobAnalysisCleaner`: language normalised to `en`/`fr` (falls back to a word-count guess),
+  seniority to `intern|junior|mid|senior|lead|principal`, lists trimmed/deduped/capped.
+  `job_descriptions.raw_text` stores the **sanitised** text (what the model actually saw).
+- **Shared LLM plumbing**: `common.llm.LlmClient` (JSON mode, temperature 0, one retry, user-safe
+  errors), `LlmJson` (tolerant mapper, JSON extraction, delimiter stripping) — used by prompts A
+  and B, and by C/D in Phase 4.
+- Spring MVC's own 4xx exceptions (bad params, 405...) are now mapped to their status instead of
+  the catch-all 500.
+- Tests use `FakeEmbeddingModel` (hashed bag-of-words, 768-d) registered as `@Primary` in
+  `AbstractIntegrationTest`, so similarity search runs against real pgvector without Ollama.
+
 ## Phase 2 — Profile (2026-09-25)
 
 ### UI kit: Sneat (replaces the Phase 1 custom styles)

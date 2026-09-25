@@ -115,6 +115,11 @@ public class ProfileService {
         return changed(profile);
     }
 
+    /** The user's profile id (the profile is created empty on first use). */
+    public UUID profileIdOf(UUID userId) {
+        return getOrCreate(userId).getId();
+    }
+
     @Transactional(readOnly = true)
     public String originalFilePath(UUID userId) {
         return profiles.findByUserId(userId).map(Profile::getOriginalFilePath).orElse(null);

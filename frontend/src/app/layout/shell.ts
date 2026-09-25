@@ -147,6 +147,7 @@ export class Shell {
   readonly nav: NavItem[] = [
     { label: 'Dashboard', path: '/', icon: 'bx-home-circle' },
     { label: 'Profile', path: '/profile', icon: 'bx-user' },
+    { label: 'Analyze job', path: '/jobs/analyze', icon: 'bx-search-alt' },
     { label: 'New application', path: '/new', icon: 'bx-plus-circle', phase: 4 },
     { label: 'Applications', path: '/applications', icon: 'bx-table', phase: 6 },
     { label: 'Settings', path: '/settings', icon: 'bx-cog', phase: 7 },

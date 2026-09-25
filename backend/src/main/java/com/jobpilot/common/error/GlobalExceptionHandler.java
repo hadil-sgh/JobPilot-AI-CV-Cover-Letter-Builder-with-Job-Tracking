@@ -59,6 +59,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+        // Spring MVC's own exceptions (bad params, 405, 406, method validation...) carry their status.
+        if (ex instanceof org.springframework.web.ErrorResponse mvc && mvc.getStatusCode().is4xxClientError()) {
+            int status = mvc.getStatusCode().value();
+            return ResponseEntity.status(status).body(ErrorResponse.of(status, status == 400 ? "Bad request" : "Request not allowed"));
+        }
         log.error("Unhandled error", ex);
         return ResponseEntity.internalServerError().body(ErrorResponse.of(500, "Unexpected error"));
     }

@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import com.jobpilot.common.error.ApiException;
+import com.jobpilot.common.text.TextClean;
 
 /**
  * Extracts plain text from an uploaded CV. The file type is detected from the content (magic
@@ -96,16 +97,7 @@ public class CvTextExtractor {
         }
     }
 
-    /** Drops control characters (keeps newlines/tabs), unifies line endings, squeezes blank lines. */
     static String normalize(String text) {
-        if (text == null) {
-            return "";
-        }
-        String s = text.replace("\r\n", "\n").replace('\r', '\n')
-                .replaceAll("[\\p{Cntrl}&&[^\n\t]]", "")
-                .replaceAll("[ \t ]+", " ")
-                .replaceAll(" *\n *", "\n")
-                .replaceAll("\n{3,}", "\n\n");
-        return s.strip();
+        return TextClean.normalizeBlock(text);
     }
 }

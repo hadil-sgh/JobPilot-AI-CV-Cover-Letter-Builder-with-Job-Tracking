@@ -18,7 +18,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * </ul>
  * Values are not interpreted here; {@link CvDraftMapper} still sanitises everything.
  */
-final class CvJsonNormalizer {
+public final class CvJsonNormalizer {
 
     /** Section name → field that receives a bare string entry. */
     private static final Map<String, String> SECTION_MAIN_FIELD = Map.of(
@@ -34,7 +34,7 @@ final class CvJsonNormalizer {
     private CvJsonNormalizer() {
     }
 
-    static JsonNode normalize(JsonNode root) {
+    public static JsonNode normalize(JsonNode root) {
         if (!(root instanceof ObjectNode obj)) {
             return root;
         }

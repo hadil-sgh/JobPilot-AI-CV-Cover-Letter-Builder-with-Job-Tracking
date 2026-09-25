@@ -3,11 +3,13 @@ package com.jobpilot.profile.cv;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.jobpilot.common.llm.LlmJson;
 import org.junit.jupiter.api.Test;
 
 class CvJsonNormalizerTest {
 
-    private final ObjectMapper json = OllamaCvStructurer.lenientMapper(new ObjectMapper());
+    private final ObjectMapper json = LlmJson.lenientMapper(new ObjectMapper());
 
     private CvDraft parse(String raw) throws Exception {
         return json.treeToValue(CvJsonNormalizer.normalize(json.readTree(raw)), CvDraft.class);

@@ -4,6 +4,7 @@ import { authGuard, guestGuard } from './core/auth/auth.guards';
 import { Login } from './features/auth/login';
 import { Register } from './features/auth/register';
 import { Dashboard } from './features/dashboard/dashboard';
+import { AnalyzePage } from './features/jobs/analyze-page';
 import { ProfilePage } from './features/profile/profile-page';
 import { Shell } from './layout/shell';
 
@@ -17,6 +18,7 @@ export const routes: Routes = [
     children: [
       { path: '', component: Dashboard, title: 'Dashboard · JobPilot' },
       { path: 'profile', component: ProfilePage, title: 'Profile · JobPilot' },
+      { path: 'jobs/analyze', component: AnalyzePage, title: 'Analyze a job · JobPilot' },
     ],
   },
   { path: '**', redirectTo: '' },

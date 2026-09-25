@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.jobpilot.common.text.TextClean;
 import com.jobpilot.profile.ItemType;
 import com.jobpilot.profile.Profile;
 import com.jobpilot.profile.ProfileItem;
@@ -123,19 +124,9 @@ public class CvDraftMapper {
         return out;
     }
 
-    /** Removes control characters, collapses whitespace, trims and caps length; blank becomes null. */
+    /** See {@link TextClean#clean}. */
     public static String clean(String value, int max) {
-        if (value == null) {
-            return null;
-        }
-        String s = value.replaceAll("[\\p{Cntrl}&&[^\n]]", " ")
-                .replaceAll("[ \\t\\u00A0]+", " ")
-                .replaceAll(" *\n+ *", "\n")
-                .strip();
-        if (s.isEmpty() || s.equalsIgnoreCase("null")) {
-            return null;
-        }
-        return s.length() > max ? s.substring(0, max).strip() : s;
+        return TextClean.clean(value, max);
     }
 
     static List<String> strings(List<String> values, int maxCount, int maxLength) {

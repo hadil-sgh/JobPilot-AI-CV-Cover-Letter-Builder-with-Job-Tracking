@@ -59,14 +59,26 @@ Backend `com.jobpilot`:
   detection, PDFBox/POI), `CvStructurer`/`OllamaCvStructurer` (prompt A in
   `resources/prompts/`), `CvDraftMapper` + `CvDates` (sanitise untrusted LLM JSON),
   `CvFileStorage`. Tests mock `CvStructurer` with `@MockitoBean`: never call Ollama in tests.
-- Later: `job`, `application`, `generation`, `document`, `template`, `stats`, `mail`,
+- `rag` — `ProfileChunker`, `EmbeddingService` (nomic prefixes, 768-d check),
+  `ProfileChunkRepository` (parameterised pgvector SQL, advisory-locked swap), `ProfileIndexer`
+  (async re-index after commit, reuses unchanged embeddings), `RetrievalService` (top-k 4,
+  min 0.55), `RagController` (`/api/profile/index|reindex|search`).
+- `job` — `JdSanitizer` (HTML→text, injection-line removal, length limits), `JobAnalyzer` /
+  `OllamaJobAnalyzer` (prompt B), `JobAnalysisCleaner`, `JobService` (analyze, evidence per
+  requirement), `JobController` (`/api/jobs`).
+- `common.llm` — `LlmClient` (all JSON LLM calls go through it), `LlmJson`,
+  `LenientStringDeserializer`. `common.text.TextClean` — shared sanitising.
+- Integration tests get `FakeEmbeddingModel` automatically (see `AbstractIntegrationTest`);
+  mock `CvStructurer` / `JobAnalyzer` with `@MockitoBean`.
+- Later: `application`, `generation`, `document`, `template`, `stats`, `mail`,
   `notion`, `export` (PROJECT.md 2.3).
 
 Frontend `src/app`:
 - `core/auth` — `AuthService` (signals), `authInterceptor` (Bearer + refresh-on-401),
   `authGuard`/`guestGuard`. `core/http/api-error.ts` for user-facing error text.
 - `layout/shell.ts` — Sneat vertical menu + navbar. `features/<page>/` — one folder per page
-  (`profile/`: page, `ItemForm`, `HeaderForm`, `ProfileService` signal store, models + helpers).
+  (`profile/`: page, `ItemForm`, `HeaderForm`, `ProfileService` signal store, models + helpers;
+  `jobs/`: `AnalyzePage` — paste JD, analysis, per-requirement evidence).
 
 ## Working rules
 
@@ -95,3 +107,5 @@ Frontend `src/app`:
   `-Djdk.net.unixdomain.tmpdir=target` for tests and `spring-boot:run`. Keep it.
 - The network is slow and drops: Docker builds use BuildKit cache mounts for `~/.m2` and npm. If a
   Maven download fails mid-build, just rebuild.
+- Python scripts on this machine default to cp1252: always run `python -X utf8` (or pass
+  `encoding="utf-8"`) when editing files, or non-ASCII characters get corrupted.

@@ -1,4 +1,4 @@
-package com.jobpilot.profile.cv;
+package com.jobpilot.common.llm;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -14,9 +14,9 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
  * flattened to their text leaves joined with ", " (e.g. {"city":"Tunis","country":"TN"} →
  * "Tunis, TN"), so one oddly-shaped field does not discard the whole answer.
  */
-final class LenientStringDeserializer extends StdDeserializer<String> {
+public final class LenientStringDeserializer extends StdDeserializer<String> {
 
-    LenientStringDeserializer() {
+    public LenientStringDeserializer() {
         super(String.class);
     }
 
