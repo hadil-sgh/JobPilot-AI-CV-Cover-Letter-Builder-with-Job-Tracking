@@ -1,23 +1,37 @@
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { environment } from '../../../environments/environment';
-import { AuthService } from './auth.service';
-import { TokenStorageService } from './token-storage.service';
+import { provideRouter } from '@angular/router';
 
-describe('AuthService', () => {
-  let service: AuthService;
-  let tokenStorage: TokenStorageService;
+import { AuthResponse } from './auth.models';
+import { authInterceptor } from './auth.interceptor';
+import { AuthService } from './auth.service';
+
+const response = (access: string, refresh: string): AuthResponse => ({
+  accessToken: access,
+  refreshToken: refresh,
+  expiresIn: 900,
+  user: { id: 'u1', email: 'ada@example.com', fullName: 'Ada' },
+});
+
+describe('AuthService + authInterceptor', () => {
+  let auth: AuthService;
+  let http: HttpClient;
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
-    });
-    service = TestBed.inject(AuthService);
-    tokenStorage = TestBed.inject(TokenStorageService);
-    httpMock = TestBed.inject(HttpTestingController);
     localStorage.clear();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
+      ],
+    });
+    auth = TestBed.inject(AuthService);
+    http = TestBed.inject(HttpClient);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
@@ -25,44 +39,52 @@ describe('AuthService', () => {
     localStorage.clear();
   });
 
-  it('stores tokens and publishes the current user on successful login', () => {
-    let emitted: unknown;
-    service.currentUser$.subscribe((user) => (emitted = user));
+  it('login stores the user and refresh token', () => {
+    auth.login({ email: 'ada@example.com', password: 'pw' }).subscribe();
+    httpMock.expectOne('/api/auth/login').flush(response('a1', 'r1'));
 
-    service.login({ email: 'a@b.com', password: 'secret123' }).subscribe();
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/auth/login`);
-    expect(req.request.method).toBe('POST');
-    req.flush({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      email: 'a@b.com',
-      fullName: 'A B',
-    });
-
-    expect(tokenStorage.getAccessToken()).toBe('access-token');
-    expect(tokenStorage.getRefreshToken()).toBe('refresh-token');
-    expect(emitted).toEqual({ email: 'a@b.com', fullName: 'A B' });
+    expect(auth.isAuthenticated()).toBeTrue();
+    expect(auth.user()?.email).toBe('ada@example.com');
+    expect(auth.hasRefreshToken()).toBeTrue();
   });
 
-  it('reports isAuthenticated based on whether an access token is stored', () => {
-    expect(service.isAuthenticated).toBe(false);
+  it('adds the Bearer header to API calls but not to login', () => {
+    auth.login({ email: 'ada@example.com', password: 'pw' }).subscribe();
+    const login = httpMock.expectOne('/api/auth/login');
+    expect(login.request.headers.has('Authorization')).toBeFalse();
+    login.flush(response('a1', 'r1'));
 
-    service.register({ email: 'a@b.com', password: 'secret123' }).subscribe();
-    httpMock
-      .expectOne(`${environment.apiUrl}/auth/register`)
-      .flush({ accessToken: 'x', refreshToken: 'y', email: 'a@b.com', fullName: null });
-
-    expect(service.isAuthenticated).toBe(true);
+    http.get('/api/auth/me').subscribe();
+    expect(httpMock.expectOne('/api/auth/me').request.headers.get('Authorization')).toBe('Bearer a1');
   });
 
-  it('clears tokens and current user on logout', () => {
-    tokenStorage.setTokens('access-token', 'refresh-token');
+  it('refreshes once on 401 and retries with the new token', () => {
+    auth.login({ email: 'ada@example.com', password: 'pw' }).subscribe();
+    httpMock.expectOne('/api/auth/login').flush(response('a1', 'r1'));
 
-    service.logout();
+    let result: unknown;
+    http.get('/api/auth/me').subscribe((r) => (result = r));
+    httpMock.expectOne('/api/auth/me').flush(null, { status: 401, statusText: 'Unauthorized' });
 
-    expect(tokenStorage.getAccessToken()).toBeNull();
-    expect(tokenStorage.getRefreshToken()).toBeNull();
-    expect(service.isAuthenticated).toBe(false);
+    const refresh = httpMock.expectOne('/api/auth/refresh');
+    expect(refresh.request.body).toEqual({ refreshToken: 'r1' });
+    refresh.flush(response('a2', 'r2'));
+
+    const retry = httpMock.expectOne('/api/auth/me');
+    expect(retry.request.headers.get('Authorization')).toBe('Bearer a2');
+    retry.flush({ ok: true });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('logs out when the refresh fails', () => {
+    auth.login({ email: 'ada@example.com', password: 'pw' }).subscribe();
+    httpMock.expectOne('/api/auth/login').flush(response('a1', 'r1'));
+
+    http.get('/api/auth/me').subscribe({ error: () => undefined });
+    httpMock.expectOne('/api/auth/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/auth/refresh').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(auth.isAuthenticated()).toBeFalse();
+    expect(auth.hasRefreshToken()).toBeFalse();
   });
 });

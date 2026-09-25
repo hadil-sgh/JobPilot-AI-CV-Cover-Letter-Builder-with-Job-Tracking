@@ -1,32 +1,37 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
+
 import { AuthService } from './auth.service';
-import { TokenStorageService } from './token-storage.service';
 
-const AUTH_ENDPOINTS = ['/auth/register', '/auth/login', '/auth/refresh'];
+const PUBLIC_AUTH_URLS = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/logout'];
 
+function withToken(req: HttpRequest<unknown>, token: string | null): HttpRequest<unknown> {
+  return token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
+}
+
+/**
+ * Adds the Bearer token to /api calls. On a 401 it refreshes once and retries; if the refresh
+ * fails the user is logged out.
+ */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const tokenStorage = inject(TokenStorageService);
-  const router = inject(Router);
-  const authService = inject(AuthService);
+  if (!req.url.startsWith('/api/') || PUBLIC_AUTH_URLS.includes(req.url)) {
+    return next(req);
+  }
+  const auth = inject(AuthService);
 
-  const isAuthEndpoint = AUTH_ENDPOINTS.some((path) => req.url.includes(path));
-  const accessToken = tokenStorage.getAccessToken();
-
-  const authorizedReq =
-    accessToken && !isAuthEndpoint
-      ? req.clone({ setHeaders: { Authorization: `Bearer ${accessToken}` } })
-      : req;
-
-  return next(authorizedReq).pipe(
-    catchError((error: unknown) => {
-      if (error instanceof HttpErrorResponse && error.status === 401 && !isAuthEndpoint) {
-        authService.logout();
-        router.navigate(['/login']);
+  return next(withToken(req, auth.getAccessToken())).pipe(
+    catchError((err: unknown) => {
+      if (!(err instanceof HttpErrorResponse) || err.status !== 401 || !auth.hasRefreshToken()) {
+        return throwError(() => err);
       }
-      return throwError(() => error);
+      return auth.refresh().pipe(
+        catchError((refreshErr: unknown) => {
+          auth.logout();
+          return throwError(() => refreshErr);
+        }),
+        switchMap((token) => next(withToken(req, token))),
+      );
     }),
   );
 };

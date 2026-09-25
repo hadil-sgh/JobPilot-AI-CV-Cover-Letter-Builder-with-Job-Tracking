@@ -1,56 +1,53 @@
 package com.jobpilot.auth;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.CreationTimestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "refresh_tokens")
 public class RefreshToken {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @Column(name = "token_hash", nullable = false, unique = true)
+    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
     @Column(nullable = false)
-    private boolean revoked = false;
+    private boolean revoked;
 
-    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    private Instant createdAt = Instant.now();
 
     protected RefreshToken() {
     }
 
-    public RefreshToken(UUID id, UUID userId, String tokenHash, Instant expiresAt) {
-        this.id = id;
-        this.userId = userId;
+    public RefreshToken(User user, String tokenHash, Instant expiresAt) {
+        this.user = user;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public UUID getUserId() {
-        return userId;
-    }
-
-    public String getTokenHash() {
-        return tokenHash;
+    public User getUser() {
+        return user;
     }
 
     public Instant getExpiresAt() {
@@ -63,9 +60,5 @@ public class RefreshToken {
 
     public void revoke() {
         this.revoked = true;
-    }
-
-    public boolean isValid() {
-        return !revoked && expiresAt.isAfter(Instant.now());
     }
 }

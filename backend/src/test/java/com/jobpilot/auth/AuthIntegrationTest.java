@@ -1,79 +1,113 @@
 package com.jobpilot.auth;
 
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jobpilot.AbstractIntegrationTest;
-import com.jobpilot.auth.dto.LoginRequest;
-import com.jobpilot.auth.dto.RefreshRequest;
-import com.jobpilot.auth.dto.RegisterRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
+
+import com.jobpilot.AbstractIntegrationTest;
 
 class AuthIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    MockMvc mvc;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    ObjectMapper json;
+
+    private static String uniqueEmail() {
+        return "user-" + UUID.randomUUID() + "@example.com";
+    }
+
+    private ResultActions postJson(String url, String body) throws Exception {
+        return mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    private JsonNode register(String email) throws Exception {
+        String body = postJson("/api/auth/register",
+                "{\"email\":\"" + email + "\",\"password\":\"s3cret-pass\",\"fullName\":\"Test User\"}")
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return json.readTree(body);
+    }
 
     @Test
-    void registerThenLoginThenRefreshIssuesWorkingTokens() throws Exception {
-        RegisterRequest register = new RegisterRequest("pilot@example.com", "supersecret1", "Pilot User");
+    void registerLoginAndAccessProtectedEndpoint() throws Exception {
+        String email = uniqueEmail();
+        register(email);
 
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken", not("")))
-                .andReturn();
+        String login = postJson("/api/auth/login", "{\"email\":\"" + email.toUpperCase() + "\",\"password\":\"s3cret-pass\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken", notNullValue()))
+                .andReturn().getResponse().getContentAsString();
+        String access = json.readTree(login).get("accessToken").asText();
 
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.fullName").value("Test User"));
+    }
+
+    @Test
+    void protectedEndpointWithoutTokenIs401() throws Exception {
+        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer garbage")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void duplicateEmailIs409() throws Exception {
+        String email = uniqueEmail();
+        register(email);
+        postJson("/api/auth/register", "{\"email\":\"" + email + "\",\"password\":\"another-pass\"}")
                 .andExpect(status().isConflict());
+    }
 
-        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new LoginRequest("pilot@example.com", "supersecret1"))))
-                .andExpect(status().isOk())
-                .andReturn();
+    @Test
+    void invalidInputIs400() throws Exception {
+        postJson("/api/auth/register", "{\"email\":\"not-an-email\",\"password\":\"short\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.email", notNullValue()))
+                .andExpect(jsonPath("$.fieldErrors.password", notNullValue()));
+    }
 
-        String refreshToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .get("refreshToken").asText();
-
-        mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshRequest(refreshToken))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken", not("")));
-
-        // Refresh tokens rotate: the same token cannot be redeemed twice.
-        mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshRequest(refreshToken))))
+    @Test
+    void wrongPasswordIs401() throws Exception {
+        String email = uniqueEmail();
+        register(email);
+        postJson("/api/auth/login", "{\"email\":\"" + email + "\",\"password\":\"wrong-pass\"}")
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void loginWithWrongPasswordIsRejected() throws Exception {
-        mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(
-                        new RegisterRequest("wrongpass@example.com", "correcthorse1", "User"))));
+    void refreshRotatesTokenAndReuseRevokesAll() throws Exception {
+        String first = register(uniqueEmail()).get("refreshToken").asText();
 
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new LoginRequest("wrongpass@example.com", "not-the-password"))))
-                .andExpect(status().isUnauthorized());
+        String rotated = postJson("/api/auth/refresh", "{\"refreshToken\":\"" + first + "\"}")
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String second = json.readTree(rotated).get("refreshToken").asText();
+
+        // Replaying the old token is treated as theft...
+        postJson("/api/auth/refresh", "{\"refreshToken\":\"" + first + "\"}").andExpect(status().isUnauthorized());
+        // ...so the newer token is revoked too.
+        postJson("/api/auth/refresh", "{\"refreshToken\":\"" + second + "\"}").andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRevokesRefreshToken() throws Exception {
+        String refresh = register(uniqueEmail()).get("refreshToken").asText();
+        postJson("/api/auth/logout", "{\"refreshToken\":\"" + refresh + "\"}").andExpect(status().isNoContent());
+        postJson("/api/auth/refresh", "{\"refreshToken\":\"" + refresh + "\"}").andExpect(status().isUnauthorized());
     }
 }

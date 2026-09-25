@@ -1,74 +1,79 @@
 package com.jobpilot.auth;
 
-import com.jobpilot.auth.dto.AuthResponse;
-import com.jobpilot.auth.dto.LoginRequest;
-import com.jobpilot.auth.dto.RegisterRequest;
-import com.jobpilot.common.exception.ApiException;
+import java.util.Locale;
 import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jobpilot.auth.dto.AuthDtos.AuthResponse;
+import com.jobpilot.auth.dto.AuthDtos.LoginRequest;
+import com.jobpilot.auth.dto.AuthDtos.RegisterRequest;
+import com.jobpilot.auth.dto.AuthDtos.UserDto;
+import com.jobpilot.common.error.ApiException;
 
 @Service
 public class AuthService {
 
-    private final UserRepository userRepository;
+    private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenService refreshTokens;
 
-    public AuthService(
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            AuthenticationManager authenticationManager,
-            JwtService jwtService,
-            RefreshTokenService refreshTokenService) {
-        this.userRepository = userRepository;
+    public AuthService(UserRepository users, PasswordEncoder passwordEncoder, JwtService jwtService,
+                       RefreshTokenService refreshTokens) {
+        this.users = users;
         this.passwordEncoder = passwordEncoder;
-        this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
-        this.refreshTokenService = refreshTokenService;
+        this.refreshTokens = refreshTokens;
     }
 
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+    @Transactional
+    public AuthResponse register(RegisterRequest req) {
+        String email = normalize(req.email());
+        if (users.existsByEmailIgnoreCase(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "An account with this email already exists");
         }
-        User user = new User(
-                UUID.randomUUID(),
-                request.email(),
-                passwordEncoder.encode(request.password()),
-                request.fullName());
-        userRepository.save(user);
-        return issueTokens(user);
+        String name = req.fullName() == null || req.fullName().isBlank() ? null : req.fullName().trim();
+        User user = users.save(new User(email, passwordEncoder.encode(req.password()), name));
+        return tokensFor(user);
     }
 
-    public AuthResponse login(LoginRequest request) {
-        try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.email(), request.password()));
-        } catch (BadCredentialsException e) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
-        }
-        User user = userRepository.findByEmail(request.email())
+    @Transactional
+    public AuthResponse login(LoginRequest req) {
+        User user = users.findByEmailIgnoreCase(normalize(req.email()))
+                .filter(u -> passwordEncoder.matches(req.password(), u.getPasswordHash()))
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
-        return issueTokens(user);
+        return tokensFor(user);
     }
 
-    public AuthResponse refresh(String rawRefreshToken) {
-        UUID userId = refreshTokenService.redeem(rawRefreshToken);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
-        return issueTokens(user);
+    // Not @Transactional: consume() must commit its revocations even when it throws.
+    public AuthResponse refresh(String refreshToken) {
+        return tokensFor(refreshTokens.consume(refreshToken));
     }
 
-    private AuthResponse issueTokens(User user) {
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail());
-        String refreshToken = refreshTokenService.issue(user.getId());
-        return new AuthResponse(accessToken, refreshToken, user.getEmail(), user.getFullName());
+    public void logout(String refreshToken) {
+        refreshTokens.revoke(refreshToken);
+    }
+
+    @Transactional(readOnly = true)
+    public UserDto me(UUID userId) {
+        return users.findById(userId).map(AuthService::toDto)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Unauthorized"));
+    }
+
+    private AuthResponse tokensFor(User user) {
+        return new AuthResponse(jwtService.createAccessToken(user), refreshTokens.issue(user),
+                jwtService.accessTokenTtlSeconds(), toDto(user));
+    }
+
+    private static UserDto toDto(User user) {
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName());
+    }
+
+    private static String normalize(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

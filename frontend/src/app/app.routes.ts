@@ -1,22 +1,19 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/auth/auth.guard';
+
+import { authGuard, guestGuard } from './core/auth/auth.guards';
+import { Login } from './features/auth/login';
+import { Register } from './features/auth/register';
+import { Dashboard } from './features/dashboard/dashboard';
+import { Shell } from './layout/shell';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+  { path: 'login', component: Login, canActivate: [guestGuard], title: 'Sign in · JobPilot' },
+  { path: 'register', component: Register, canActivate: [guestGuard], title: 'Create account · JobPilot' },
   {
-    path: 'login',
-    loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
-  },
-  {
-    path: 'register',
-    loadComponent: () =>
-      import('./features/register/register.component').then((m) => m.RegisterComponent),
-  },
-  {
-    path: 'dashboard',
+    path: '',
+    component: Shell,
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
+    children: [{ path: '', component: Dashboard, title: 'Dashboard · JobPilot' }],
   },
-  { path: '**', redirectTo: 'dashboard' },
+  { path: '**', redirectTo: '' },
 ];

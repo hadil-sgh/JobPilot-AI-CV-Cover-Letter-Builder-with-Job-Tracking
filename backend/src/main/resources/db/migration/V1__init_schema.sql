@@ -1,5 +1,6 @@
+-- Full schema from docs/PROJECT.md section 2.4, plus refresh_tokens (see docs/DECISIONS.md).
+
 CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -9,10 +10,20 @@ CREATE TABLE users (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE refresh_tokens (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  VARCHAR(64) NOT NULL UNIQUE,   -- SHA-256 hex; the raw token is never stored
+  expires_at  TIMESTAMPTZ NOT NULL,
+  revoked     BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+
 -- Master profile (one per user)
 CREATE TABLE profiles (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   headline    VARCHAR(255),
   summary     TEXT,
   phone       VARCHAR(50),
@@ -36,6 +47,7 @@ CREATE TABLE profile_items (             -- experience, education, project, skil
   tags        JSONB DEFAULT '[]',
   sort_order  INT DEFAULT 0
 );
+CREATE INDEX idx_profile_items_profile ON profile_items(profile_id);
 
 -- Vector store: chunks of the profile used for retrieval
 CREATE TABLE profile_chunks (
@@ -46,7 +58,7 @@ CREATE TABLE profile_chunks (
   metadata    JSONB DEFAULT '{}',
   embedding   vector(768) NOT NULL
 );
-CREATE INDEX ON profile_chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_profile_chunks_embedding ON profile_chunks USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE job_descriptions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,7 +82,7 @@ CREATE TABLE applications (
   work_mode     VARCHAR(20),             -- REMOTE | HYBRID | ONSITE  (Notion: Remote)
   summary       TEXT,                    -- Notion: summary
   description   TEXT,                    -- Notion: Description (the JD)
-  my_answers    TEXT,                    -- Notion: My Answers (form answers)
+  my_answers    TEXT,                    -- Notion: My Answers
   status        VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- Notion: Situation
   contact_email VARCHAR(255),
   notion_page_id VARCHAR(64),
@@ -79,6 +91,7 @@ CREATE TABLE applications (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- status: DRAFT | PENDING | INTERVIEW | OFFER | REJECTED | GHOSTED | WITHDRAWN
+CREATE INDEX idx_applications_user_status ON applications(user_id, status);
 
 CREATE TABLE generated_documents (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -88,12 +101,12 @@ CREATE TABLE generated_documents (
   language      VARCHAR(5),
   template      VARCHAR(50),             -- template id from manifest, e.g. 'ats-classic'
   template_version VARCHAR(20),
-  template_options JSONB DEFAULT '{}',   -- font size, accent color, density, section order...
-  content_json  JSONB NOT NULL,          -- structured content (editable)
-  latex_source  TEXT,                    -- rendered .tex kept for debugging / re-compile
+  template_options JSONB DEFAULT '{}',
+  content_json  JSONB NOT NULL,
+  latex_source  TEXT,
   pdf_path      VARCHAR(500),
   match_score   INT,
-  ats_score     INT,                     -- from automated ATS self-check
+  ats_score     INT,
   ats_report    JSONB,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -122,6 +135,6 @@ CREATE TABLE email_messages (
   subject       VARCHAR(500),
   body_excerpt  TEXT,
   external_id   VARCHAR(255),
-  detected_status VARCHAR(30),           -- suggestion from classifier
+  detected_status VARCHAR(30),
   received_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );

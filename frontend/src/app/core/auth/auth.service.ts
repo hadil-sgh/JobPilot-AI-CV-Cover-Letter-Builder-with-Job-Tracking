@@ -1,57 +1,116 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
-import { environment } from '../../../environments/environment';
-import { AuthResponse, LoginRequest, RegisterRequest } from './auth.models';
-import { TokenStorageService } from './token-storage.service';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { Observable, finalize, firstValueFrom, map, shareReplay, tap } from 'rxjs';
 
-export interface CurrentUser {
-  email: string;
-  fullName: string | null;
-}
+import { AuthResponse, LoginRequest, RegisterRequest, User } from './auth.models';
 
-// Angular 15 has no signals API (added in v16/17, see docs/DECISIONS.md), so auth state
-// is exposed as a BehaviorSubject instead.
+const REFRESH_KEY = 'jobpilot.refreshToken';
+
+/**
+ * Session state as signals. The access token lives only in memory; the refresh token is kept in
+ * localStorage so a page reload can restore the session (see docs/DECISIONS.md).
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly currentUserSubject = new BehaviorSubject<CurrentUser | null>(null);
-  readonly currentUser$ = this.currentUserSubject.asObservable();
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
 
-  constructor(
-    private readonly http: HttpClient,
-    private readonly tokenStorage: TokenStorageService,
-  ) {}
+  private readonly _user = signal<User | null>(null);
+  private accessToken: string | null = null;
+  private refreshInFlight: Observable<string> | null = null;
 
-  get isAuthenticated(): boolean {
-    return !!this.tokenStorage.getAccessToken();
+  readonly user = this._user.asReadonly();
+  readonly isAuthenticated = computed(() => this._user() !== null);
+
+  getAccessToken(): string | null {
+    return this.accessToken;
   }
 
-  register(request: RegisterRequest): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>(`${environment.apiUrl}/auth/register`, request)
-      .pipe(tap((response) => this.handleAuthResponse(response)));
+  login(req: LoginRequest): Observable<User> {
+    return this.http.post<AuthResponse>('/api/auth/login', req).pipe(
+      tap((res) => this.setSession(res)),
+      map((res) => res.user),
+    );
   }
 
-  login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>(`${environment.apiUrl}/auth/login`, request)
-      .pipe(tap((response) => this.handleAuthResponse(response)));
+  register(req: RegisterRequest): Observable<User> {
+    return this.http.post<AuthResponse>('/api/auth/register', req).pipe(
+      tap((res) => this.setSession(res)),
+      map((res) => res.user),
+    );
   }
 
-  refresh(): Observable<AuthResponse> {
-    const refreshToken = this.tokenStorage.getRefreshToken();
-    return this.http
-      .post<AuthResponse>(`${environment.apiUrl}/auth/refresh`, { refreshToken })
-      .pipe(tap((response) => this.handleAuthResponse(response)));
+  /** Exchanges the stored refresh token for a new pair. Concurrent callers share one request. */
+  refresh(): Observable<string> {
+    if (!this.refreshInFlight) {
+      const refreshToken = readRefreshToken();
+      this.refreshInFlight = this.http
+        .post<AuthResponse>('/api/auth/refresh', { refreshToken: refreshToken ?? '' })
+        .pipe(
+          tap({ next: (res) => this.setSession(res), error: () => this.clearSession() }),
+          map((res) => res.accessToken),
+          finalize(() => (this.refreshInFlight = null)),
+          shareReplay(1),
+        );
+    }
+    return this.refreshInFlight;
+  }
+
+  hasRefreshToken(): boolean {
+    return readRefreshToken() !== null;
+  }
+
+  /** Called once at startup: silently restores the session if a refresh token is stored. */
+  async restoreSession(): Promise<void> {
+    if (!this.hasRefreshToken()) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.refresh());
+    } catch {
+      // Expired or revoked: stay logged out.
+    }
   }
 
   logout(): void {
-    this.tokenStorage.clear();
-    this.currentUserSubject.next(null);
+    const refreshToken = readRefreshToken();
+    if (refreshToken) {
+      this.http.post('/api/auth/logout', { refreshToken }).subscribe({ error: () => undefined });
+    }
+    this.clearSession();
+    this.router.navigateByUrl('/login');
   }
 
-  private handleAuthResponse(response: AuthResponse): void {
-    this.tokenStorage.setTokens(response.accessToken, response.refreshToken);
-    this.currentUserSubject.next({ email: response.email, fullName: response.fullName });
+  private setSession(res: AuthResponse): void {
+    this.accessToken = res.accessToken;
+    writeRefreshToken(res.refreshToken);
+    this._user.set(res.user);
+  }
+
+  private clearSession(): void {
+    this.accessToken = null;
+    writeRefreshToken(null);
+    this._user.set(null);
+  }
+}
+
+function readRefreshToken(): string | null {
+  try {
+    return localStorage.getItem(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeRefreshToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(REFRESH_KEY, token);
+    } else {
+      localStorage.removeItem(REFRESH_KEY);
+    }
+  } catch {
+    // Storage unavailable (private mode): session just won't survive a reload.
   }
 }

@@ -1,16 +1,13 @@
-# Env / secrets
+# Secrets
 .env
 
 # Backend (Maven)
 backend/target/
-backend/.mvn/wrapper/maven-wrapper.jar
-*.class
 
 # Frontend (Angular)
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/
-npm-debug.log*
 
 # IDE
 .idea/
@@ -21,7 +18,6 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Storage / generated files
+# Runtime storage / generated output
 storage/
-*.pdf
 *.log

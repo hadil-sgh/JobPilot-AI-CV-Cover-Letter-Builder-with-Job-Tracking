@@ -1,61 +1,55 @@
 # Decisions Log
 
-Records choices made where `docs/PROJECT.md` was silent or ambiguous. Newest first.
+Choices made where `docs/PROJECT.md` was silent, ambiguous, or could not be followed on this
+machine. Newest phase first.
 
-## Phase 1
+## Phase 1 — Foundation (fresh restart, 2026-09-25)
 
-- **Refresh token storage.** The schema in PROJECT.md section 2.4 has no table for refresh
-  tokens even though FR-1 requires them. Added `refresh_tokens` (id, user_id, token_hash,
-  expires_at, revoked, created_at) in `V2__add_refresh_tokens.sql`. Tokens are hashed
-  (SHA-256) before storage so a DB leak doesn't leak usable tokens. Rotation: each
-  `/api/auth/refresh` call revokes the old token and issues a new one.
-- **JWT library.** `io.jsonwebtoken:jjwt` (jjwt-api/impl/jackson) — not specified in the doc,
-  it's the de-facto standard for Spring Boot JWT and keeps token creation/parsing simple.
-- **Access/refresh token lifetimes.** Access token: 15 minutes. Refresh token: 7 days.
-  Not specified in the doc; short-lived access token limits exposure if leaked, refresh
-  token lifetime keeps users from re-logging in constantly during daily job-hunting use.
-- **Health check.** Used Spring Boot Actuator's `/actuator/health` instead of a hand-rolled
-  endpoint — standard, zero-maintenance, and exposes readiness (DB connectivity) for free.
-- **Java version: 17, not 21.** PROJECT.md fixes the stack at Java 21, but the dev machine only
-  has JDK 17/8 (no 21) and, per explicit user instruction, we work with the existing local
-  toolchain rather than installing a new JDK or building exclusively through Docker. Spring Boot
-  3.3 fully supports Java 17, so this only changes the compiler/runtime target
-  (`pom.xml` `java.version=17`, both stages of `backend/Dockerfile` on `*-temurin-17`), not the
-  framework or any dependency versions. If a real need for Java 21 language features shows up
-  later, revisit by installing a JDK 21 (e.g. `choco install temurin21`) — a system change worth
-  a separate confirmation when it's actually needed.
-- **Angular version: 15, not 18.** PROJECT.md fixes Angular 18 (standalone components + signals),
-  but per explicit user instruction we work only with what's already installed: global
-  `@angular/cli` is v15.2.11. An `npx @angular/cli@18` scaffold was tried first and fully
-  downloaded successfully, but was deleted and redone on v15 once the user confirmed that
-  choice (see chat: "no work with the existing versions"). Real consequence: **Angular 15 has
-  no signals API at all** (introduced in v16, stabilized in v17) — state management uses plain
-  services/RxJS instead. Standalone bootstrapping also isn't exposed as an `ng new` flag on this
-  CLI version (`ng new --standalone` errors with "Unknown argument"), so the app is scaffolded
-  NgModule-based and later hand-converted to a standalone bootstrap (`bootstrapApplication` in
-  `main.ts`) where practical, without relying on CLI schematics for it.
-- **CORS / dev ports.** Backend on 8080, Angular dev server on 4200 in local dev (`ng serve`
-  proxies or CORS-allows 4200); in Docker Compose, nginx serves the built frontend on 4200
-  and talks to `backend:8080` — matches the doc's compose file exactly.
-- **Frontend Docker build tuned for this network.** `frontend/Dockerfile` uses `node:20-alpine`
-  (much smaller pull than `node:20`), `frontend/.dockerignore` excludes `node_modules`/`dist`
-  (build context dropped from ~473MB to ~8KB), and `npm ci` runs with higher fetch retries and
-  `--maxsockets=3` because default settings hit repeated `ECONNRESET` inside Docker Desktop.
-  Output path is `dist/frontend` (Angular 15 has no `/browser` subfolder, unlike the doc's 18).
-- **Verifying without Ollama.** `backend` depends on `ollama` in compose, which pulls a multi-GB
-  image that Phase 1 doesn't need. Verification ran db, backend and frontend as separate
-  containers on one user-defined network (aliases `db` and `backend`). After repeated Docker
-  Desktop restarts the compose network's state went stale (network showed no containers, DNS for
-  `db` failed); recreating the network fixed it.
-- **Integration tests use MOCK web environment, not RANDOM_PORT.** On this Windows dev machine,
-  `@SpringBootTest(webEnvironment = RANDOM_PORT)` reliably failed embedded Tomcat startup with
-  `SocketException: Invalid argument: connect` while establishing its internal NIO loopback
-  wakeup pipe — a known class of Windows issue triggered by Docker Desktop's virtual network
-  adapters (Hyper-V/WSL) confusing the JVM's loopback socket resolution. Forcing
-  `-Djava.net.preferIPv4Stack=true` (kept in `pom.xml` surefire config) did not fix it. Switched
-  `AbstractIntegrationTest` to `webEnvironment = MOCK` + `@AutoConfigureMockMvc` and rewrote
-  `AuthIntegrationTest` on `MockMvc` instead of `TestRestTemplate` — no real server socket is
-  opened, so the bug never triggers, and it's the more idiomatic way to test controllers anyway.
-- **CORS / dev ports.** Backend on 8080, Angular dev server on 4200 in local dev (`ng serve`
-  proxies or CORS-allows 4200); in Docker Compose, nginx serves the built frontend on 4200
-  and talks to `backend:8080` — matches the doc's compose file exactly.
+The first attempt was wiped at the user's request (still in git history at `8af36a8`) and rebuilt.
+
+### Versions (user: "keep the versions already installed")
+- **Java 17, not 21.** Only JDK 17 is installed. Spring Boot 3.5 fully supports 17. Dockerfile
+  uses `maven:3.9-eclipse-temurin-17` / `eclipse-temurin:17-jre`.
+- **Spring Boot 3.5.6, not 3.3.** Spring AI 1.x (needed from Phase 2/3) requires Boot 3.4+.
+- **Angular 20, project-local (not the global CLI 15, not 18).** The global CLI 15 does not
+  support Node 24 (installed) and has no signals. Angular 20 is pinned in
+  `frontend/package.json` and run via `npx ng`, so the global install is untouched. User
+  approved. Dockerfile builds with `node:24-alpine`; output is `dist/frontend/browser`.
+
+### Backend
+- **Refresh tokens.** The schema has no table for them though FR-1 requires refresh. Added
+  `refresh_tokens` in `V1__init_schema.sql`. Tokens are opaque random values; only the
+  SHA-256 hash is stored. Each refresh rotates (old revoked, new issued). Presenting an
+  already-revoked token revokes *all* of that user's tokens (theft detection).
+- **Token lifetimes.** Access JWT (HS256) 15 min, refresh 7 days.
+- **JWT library.** `io.jsonwebtoken:jjwt` 0.12.6.
+- **`profiles.user_id` is UNIQUE.** The doc says "one per user"; the constraint enforces it.
+- **Extra indexes** on `refresh_tokens(user_id)`, `profile_items(profile_id)`,
+  `applications(user_id, status)` — FK/filter columns used by every query.
+- **Health check.** Spring Boot Actuator `/actuator/health` (public, no details).
+- **`/api/auth/me` and `/api/auth/logout`** added (not in the doc's API table): the frontend
+  needs the current user and a way to revoke the refresh token.
+- **No CORS.** nginx serves the SPA and proxies `/api` on the same origin; `ng serve` does the
+  same via `frontend/proxy.conf.json`. Simpler and safer than configuring CORS.
+- **Feature flags** as `features.*` in `application.yml` (`FeatureProperties` record).
+- **Integration tests use MockMvc** (`@SpringBootTest` MOCK env + `@AutoConfigureMockMvc`), not
+  a real port: on this Windows machine embedded Tomcat on a random port failed with
+  `SocketException: Invalid argument: connect` in the previous attempt (Docker Desktop network
+  adapters). One shared pgvector Testcontainer per test run.
+- **No Maven wrapper.** Maven 3.9.9 is installed locally and Docker/CI use their own Maven.
+
+### Frontend
+- **Token storage.** Access token only in memory; refresh token in `localStorage` so a page
+  reload restores the session (via `provideAppInitializer`). Trade-off: an XSS could read the
+  refresh token. Mitigations: Angular's default escaping, never binding model output as HTML,
+  rotation + reuse detection. Revisit (httpOnly cookie) before any public deployment.
+- **Visual style** follows `docs/style-reference.png` (user-provided): slim icon rail, bold page
+  titles, white cards, pastel status pills, blue accent. Tokens live in `src/styles.scss`.
+- **Nav items for later phases** are visible but disabled with the phase number.
+
+### Docker Compose
+- `latex-worker` is not in compose until Phase 5 (nothing to run yet).
+- Postgres is also published on host port 5432 so `mvn spring-boot:run` can use it in dev.
+- Phase 1 was verified with `docker compose up -d --build --no-deps db backend frontend`:
+  Phase 1 does not call Ollama, and pulling the Ollama image + models is several GB. A plain
+  `docker compose up` still starts everything, including the model download.

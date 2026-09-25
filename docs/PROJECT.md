@@ -3,6 +3,9 @@
 > Working name: **JobPilot**. Rename freely.
 > Stack: **Spring Boot 3 · Angular 18 · PostgreSQL (pgvector) · Docker · Llama via Ollama**
 > Author: Hadil Sghair · Version 0.1 · September 2026
+>
+> **As built:** Java 17 (not 21), Spring Boot 3.5, Angular 20 — the versions available on the dev
+> machine. Every deviation from this document is logged in [DECISIONS.md](DECISIONS.md).
 
 ---
 
