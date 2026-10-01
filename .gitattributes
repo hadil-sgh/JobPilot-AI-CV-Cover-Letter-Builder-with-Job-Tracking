@@ -1,0 +1,13 @@
+# Keep Unix line endings in the repo and the working tree: these files run inside Linux
+# containers (Dockerfiles, Python, LaTeX, SQL, shell) and CRLF can break them.
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.jar binary

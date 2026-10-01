@@ -48,12 +48,13 @@ class FactValidatorGoldenTest {
         try (InputStream in = Files.newInputStream(file)) {
             g = JSON.readTree(in);
         }
-        JobAnalysis analysis = new JobAnalysis("Role", g.get("company").asText(), "en", null,
+        String language = g.has("language") ? g.get("language").asText() : "en";
+        JobAnalysis analysis = new JobAnalysis("Role", g.get("company").asText(), language, null,
                 strings(g.get("requirements")), List.of(), strings(g.get("keywords")), List.of(), null);
         ProfileSnapshot profile = new ProfileSnapshot(UUID.randomUUID(), "Sami Ben Ali", "s@example.com", null, null,
                 null, null, List.of(), List.of(), List.of(), java.util.Map.of(), g.get("profileText").asText());
         GenerationContext ctx = new GenerationContext(UUID.randomUUID(), UUID.randomUUID(), g.get("company").asText(),
-                "Backend Developer", analysis, "en", profile);
+                "Backend Developer", analysis, language, profile);
         FactBase facts = FactBase.of(ctx);
 
         List<ReviewFlag> flags = g.has("cv")

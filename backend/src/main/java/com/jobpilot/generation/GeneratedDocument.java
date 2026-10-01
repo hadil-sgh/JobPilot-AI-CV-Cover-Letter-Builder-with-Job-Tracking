@@ -159,6 +159,14 @@ public class GeneratedDocument {
         this.atsReport = null;
     }
 
+    /** A new version made from another one (e.g. a translation) keeps its template choice; no PDF yet. */
+    public void copyTemplateFrom(GeneratedDocument source) {
+        this.template = source.template;
+        this.templateVersion = source.templateVersion;
+        this.templateOptions = new HashMap<>(source.templateOptions == null ? Map.of() : source.templateOptions);
+        this.matchScore = source.matchScore;
+    }
+
     /** Records a successful render (PROJECT.md 2.4: template + options are stored so any CV can be re-rendered). */
     public void rendered(String template, String templateVersion, Map<String, Object> options, String latexSource,
                          String pdfPath, Integer atsScore, JsonNode atsReport) {

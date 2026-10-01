@@ -357,6 +357,7 @@ users 1─* email_accounts
 | GET | `/api/documents/{id}/pdf` | Download PDF |
 | POST | `/api/documents/{id}/render` | Render with a template + options, run ATS check *(as built, Phase 5)* |
 | GET | `/api/templates` | Template manifests for the picker *(as built, Phase 5)* |
+| POST | `/api/documents/{id}/translate` | Translate a CV/letter (EN ⇄ FR) into a new version *(as built, Phase 5.1)* |
 | POST | `/api/applications/{id}/send-email` | Send CV + letter by email |
 | POST | `/api/notion/connect` | Store Notion token and database ID |
 | POST | `/api/notion/sync` | Force sync |

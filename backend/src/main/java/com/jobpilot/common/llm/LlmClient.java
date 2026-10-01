@@ -31,12 +31,21 @@ public class LlmClient {
     private final ObjectMapper json;
     /** Smaller model used when the main one cannot be loaded for lack of RAM (empty = no fallback). */
     private final String fallbackModel;
+    /** Model for simple tasks (job analysis, match judgment); empty = the main model. */
+    private final String fastModel;
 
     public LlmClient(ChatClient.Builder builder, ObjectMapper objectMapper,
-                     @Value("${jobpilot.llm.fallback-model:}") String fallbackModel) {
+                     @Value("${jobpilot.llm.fallback-model:}") String fallbackModel,
+                     @Value("${jobpilot.llm.fast-model:}") String fastModel) {
         this.chat = builder.build();
         this.json = LlmJson.lenientMapper(objectMapper);
         this.fallbackModel = fallbackModel == null ? "" : fallbackModel.strip();
+        this.fastModel = fastModel == null ? "" : fastModel.strip();
+    }
+
+    /** Same as {@link #callJson(String, String, Class, Function, String)} on the fast model (simple extraction/judgment). */
+    public <T> T callJsonFast(String system, String user, Class<T> type, Function<JsonNode, JsonNode> repair, String what) {
+        return callJson(system, user, type, repair, what, 0.0, fastModel.isEmpty() ? null : fastModel);
     }
 
     /**
@@ -50,8 +59,13 @@ public class LlmClient {
     /** Same, with a sampling temperature (e.g. higher to get a different version on "regenerate"). */
     public <T> T callJson(String system, String user, Class<T> type, Function<JsonNode, JsonNode> repair, String what,
                           double temperature) {
+        return callJson(system, user, type, repair, what, temperature, null);
+    }
+
+    private <T> T callJson(String system, String user, Class<T> type, Function<JsonNode, JsonNode> repair, String what,
+                           double temperature, String model) {
         for (int attempt = 1; attempt <= 2; attempt++) {
-            String raw = call(system, user, what, temperature);
+            String raw = call(system, user, what, temperature, model);
             try {
                 JsonNode tree = json.readTree(LlmJson.extractJsonObject(raw));
                 return json.treeToValue(repair.apply(tree), type);
@@ -71,11 +85,11 @@ public class LlmClient {
         return false;
     }
 
-    private String call(String system, String user, String what, double temperature) {
+    private String call(String system, String user, String what, double temperature, String model) {
         try {
-            return callModel(system, user, temperature, null);
+            return callModel(system, user, temperature, model);
         } catch (RuntimeException e) {
-            if (!causeMessageContains(e, OUT_OF_MEMORY) || fallbackModel.isEmpty()) {
+            if (!causeMessageContains(e, OUT_OF_MEMORY) || fallbackModel.isEmpty() || fallbackModel.equals(model)) {
                 throw mapError(e, what);
             }
             // Not enough free RAM for the main model right now: answer with the smaller one instead of failing.

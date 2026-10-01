@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -80,6 +81,16 @@ public class GenerationController {
     public DocumentDto update(@AuthenticationPrincipal AuthUser user, @PathVariable UUID id,
                               @Valid @RequestBody UpdateRequest req) {
         return documents.update(user.id(), id, req.content());
+    }
+
+    public record TranslateRequest(@NotBlank @Pattern(regexp = "en|fr") String language) {
+    }
+
+    /** Translates a document (EN ⇄ FR) into a new version (synchronous, ~1–2 min). */
+    @PostMapping("/api/documents/{id}/translate")
+    public DocumentDto translate(@AuthenticationPrincipal AuthUser user, @PathVariable UUID id,
+                                 @Valid @RequestBody TranslateRequest req) {
+        return documents.translate(user.id(), id, req.language());
     }
 
     public record RenderRequest(@Size(max = 50) String template, Map<String, Object> options) {

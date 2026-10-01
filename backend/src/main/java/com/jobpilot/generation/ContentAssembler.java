@@ -33,7 +33,7 @@ import com.jobpilot.profile.ItemType;
 @Component
 public class ContentAssembler {
 
-    static final int MAX_BULLETS = 5;
+    static final int MAX_BULLETS = 4; // shorter output = faster generation and a one-page CV
     static final int MAX_PROJECTS = 3;
 
     public CvContent assembleCv(GenerationContext ctx, EvidencePack pack, CvDraftOut draft, CvContent.Match match) {

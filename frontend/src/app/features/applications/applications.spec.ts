@@ -55,4 +55,12 @@ describe('ApplicationsService', () => {
     expect(req.request.body).toEqual({ section: 'experience:E1' });
     http.match(() => true).forEach((r) => r.flush({}));
   });
+
+  it('posts a translation request', () => {
+    api.translate('d1', 'fr').subscribe();
+    const req = http.expectOne('/api/documents/d1/translate');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ language: 'fr' });
+    req.flush({});
+  });
 });

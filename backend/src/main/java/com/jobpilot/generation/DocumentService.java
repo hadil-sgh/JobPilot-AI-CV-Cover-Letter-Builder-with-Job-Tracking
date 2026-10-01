@@ -57,11 +57,13 @@ public class DocumentService {
     private final AtsChecker ats;
     private final PdfStorage pdfs;
     private final FeatureProperties features;
+    private final DocumentTranslator translator;
+    private final DocumentStore store;
 
     public DocumentService(GeneratedDocumentRepository documents, ApplicationService applications,
                            GenerationPipeline pipeline, FactValidator validator, ObjectMapper objectMapper,
                            TemplateRegistry templates, DocumentRenderer renderer, AtsChecker ats, PdfStorage pdfs,
-                           FeatureProperties features) {
+                           FeatureProperties features, DocumentTranslator translator, DocumentStore store) {
         this.documents = documents;
         this.applications = applications;
         this.pipeline = pipeline;
@@ -72,6 +74,8 @@ public class DocumentService {
         this.ats = ats;
         this.pdfs = pdfs;
         this.features = features;
+        this.translator = translator;
+        this.store = store;
     }
 
     @Transactional(readOnly = true)
@@ -127,6 +131,33 @@ public class DocumentService {
             content = json.valueToTree(fresh.withReview(validator.validateLetter(fresh, facts)));
         }
         return save(doc, content);
+    }
+
+    /**
+     * Translates a document (EN ⇄ FR) into a new version, re-checked by the fact validator in the
+     * target language. Synchronous: one or two LLM calls (~1–2 min on a small GPU).
+     */
+    public DocumentDto translate(UUID userId, UUID id, String language) {
+        GeneratedDocument doc = owned(userId, id);
+        if (!"en".equals(language) && !"fr".equals(language)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Language must be \"en\" or \"fr\"");
+        }
+        if (language.equals(DocumentModels.lang(doc.getLanguage()))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "This document is already in that language");
+        }
+        GenerationContext ctx = pipeline.loadContext(userId, doc.getApplicationId());
+        GenerationContext target = new GenerationContext(ctx.userId(), ctx.applicationId(), ctx.company(),
+                ctx.roleTitle(), ctx.analysis(), language, ctx.profile());
+        FactBase facts = FactBase.of(target);
+        Object content;
+        if (doc.getType() == DocumentType.CV) {
+            CvContent cv = translator.translateCv(read(doc.getContent(), CvContent.class), language);
+            content = cv.withReview(validator.validateCv(cv, facts));
+        } else {
+            LetterContent letter = translator.translateLetter(read(doc.getContent(), LetterContent.class), language);
+            content = letter.withReview(validator.validateLetter(letter, facts));
+        }
+        return toDto(store.saveDerivedVersion(doc, language, content), true);
     }
 
     /**

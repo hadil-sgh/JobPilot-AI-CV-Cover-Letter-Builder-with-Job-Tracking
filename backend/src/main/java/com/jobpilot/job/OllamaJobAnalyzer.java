@@ -27,6 +27,7 @@ public class OllamaJobAnalyzer implements JobAnalyzer {
     @Override
     public JobAnalysis analyze(String jdText) {
         String user = "<job>\n" + LlmJson.stripDelimiter(jdText, "job") + "\n</job>";
-        return llm.callJson(systemPrompt, user, JobAnalysis.class, Function.identity(), "this job description");
+        // Extraction task: the fast model is good enough and much quicker on small GPUs.
+        return llm.callJsonFast(systemPrompt, user, JobAnalysis.class, Function.identity(), "this job description");
     }
 }

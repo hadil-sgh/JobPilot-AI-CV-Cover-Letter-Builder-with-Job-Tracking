@@ -70,6 +70,8 @@ jobpilot:
   llm:
     # Used automatically when Ollama reports not enough RAM for the main model (empty = no fallback).
     fallback-model: ${OLLAMA_FALLBACK_MODEL:}
+    # Optional smaller model for simple tasks (job analysis, match scoring). Empty = main model.
+    fast-model: ${OLLAMA_FAST_MODEL:}
 
 # Feature flags: half-built features ship switched off (PROJECT.md 3.9, point 4).
 

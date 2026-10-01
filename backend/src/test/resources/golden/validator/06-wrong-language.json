@@ -1,0 +1,13 @@
+{
+  "description": "French document whose summary and one letter-style paragraph drifted into English",
+  "language": "fr",
+  "profileText": "Experience: Software Engineering Intern at Vermeg (2024-02 to 2024-08)\n- Built REST APIs with Spring Boot and PostgreSQL",
+  "company": "Nexa Fintech",
+  "keywords": ["Spring Boot"],
+  "requirements": [],
+  "cv": {
+    "summary": "Junior backend developer with experience in REST APIs and Spring Boot, looking for a role in your team.",
+    "experience": [{"ref": "E1", "bullets": ["Développement d'API REST avec Spring Boot et PostgreSQL"]}]
+  },
+  "expected": ["summary|Written in English, but this document is in French"]
+}

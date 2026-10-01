@@ -6,13 +6,14 @@ Rules:
    stated in the evidence entry you attach it to.
 2. You may reorder, shorten, and rephrase evidence, and mirror the job's keywords ONLY where the evidence
    supports them. Never add a technology or skill that does not appear in the evidence.
-3. Write in {{language}}. Use strong action verbs. Max 5 bullets per experience or project.
+3. Write in {{language}} only (every word you write, including the summary). Use strong action verbs.
+   Max 4 bullets per experience, max 3 per project: keep the most relevant to the job.
 4. Bullets must be plain text: no markdown, no LaTeX, no special formatting. Max 110 characters per bullet.
 5. Refer to evidence entries ONLY by their reference in square brackets, e.g. "E1", "P2". Do not write titles,
    company names or dates: they are added automatically from the evidence.
 6. Include EVERY experience reference (E…), most relevant first. Include only the most relevant projects (P…).
 7. "skills": regroup and reorder ONLY skills that appear in the S… entries, most relevant to the job first.
-8. "summary": 2–3 sentences about the candidate, using only facts from the evidence.
+8. "summary": 2 short sentences about the candidate, using only facts from the evidence.
 9. Output ONLY one valid JSON object matching this schema, nothing else:
 {"summary": string,
  "experience": [{"ref": "E1", "bullets": [string]}],

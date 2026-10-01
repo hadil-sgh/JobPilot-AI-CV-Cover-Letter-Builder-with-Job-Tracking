@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.jobpilot.common.text.LanguageGuess;
 import com.jobpilot.generation.content.CvContent;
 import com.jobpilot.generation.content.LetterContent;
 import com.jobpilot.generation.content.ReviewFlag;
@@ -39,6 +40,7 @@ public class FactValidator {
     public List<ReviewFlag> validateCv(CvContent cv, FactBase facts) {
         List<ReviewFlag> flags = new ArrayList<>();
         check("summary", cv.summary(), facts, flags);
+        checkLanguage("summary", cv.summary(), facts, flags);
         for (CvContent.Entry e : nullSafe(cv.experience())) {
             for (String b : nullSafe(e.bullets())) {
                 check("experience:" + e.ref(), b, facts, flags);
@@ -66,6 +68,7 @@ public class FactValidator {
         check("letter", letter.greeting(), facts, flags);
         for (String p : nullSafe(letter.paragraphs())) {
             check("letter", p, facts, flags);
+            checkLanguage("letter", p, facts, flags);
         }
         check("letter", letter.closing(), facts, flags);
         return dedupe(flags);
@@ -102,6 +105,22 @@ public class FactValidator {
                         + "\", which is not one of your employers, schools or the target company"));
             }
         }
+    }
+
+    /**
+     * Small models sometimes drift into the profile's or the job ad's language. Only longer texts are
+     * checked (a clear majority of EN/FR function words), so short bullets never trigger it.
+     */
+    static void checkLanguage(String section, String text, FactBase facts, List<ReviewFlag> out) {
+        String expected = "fr".equals(facts.language()) ? "fr" : "en";
+        String actual = LanguageGuess.clear(text, 4);
+        if (actual != null && !actual.equals(expected)) {
+            out.add(new ReviewFlag(section, "Written in " + name(actual) + ", but this document is in " + name(expected)));
+        }
+    }
+
+    private static String name(String lang) {
+        return "fr".equals(lang) ? "French" : "English";
     }
 
     private static List<ReviewFlag> dedupe(List<ReviewFlag> flags) {

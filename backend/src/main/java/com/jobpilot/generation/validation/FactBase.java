@@ -16,7 +16,7 @@ import com.jobpilot.rag.LexicalMatcher;
  * words of the requirements) and the names that may follow "at/for/chez...".
  */
 public record FactBase(Set<String> profileTokens, Set<String> numbers, Set<String> jobTerms,
-                       Set<String> allowedNameTokens) {
+                       Set<String> allowedNameTokens, String language) {
 
     private static final Pattern NUMBER = Pattern.compile("(?<![\\p{L}\\d])(\\d+(?:[.,]\\d+)?)");
     /** Mid-sentence capitalised word, ALL-CAPS acronym, or token with digits/symbols: likely a technology. */
@@ -49,7 +49,7 @@ public record FactBase(Set<String> profileTokens, Set<String> numbers, Set<Strin
         Set<String> names = new HashSet<>(profileTokens);
         names.addAll(LexicalMatcher.tokens(ctx.company()));
         names.addAll(LexicalMatcher.tokens(ctx.roleTitle()));
-        return new FactBase(profileTokens, numbers, jobTerms, names);
+        return new FactBase(profileTokens, numbers, jobTerms, names, ctx.language());
     }
 
     static Set<String> numbersIn(String text) {

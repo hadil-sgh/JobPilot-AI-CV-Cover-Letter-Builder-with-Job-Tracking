@@ -3,6 +3,33 @@
 Choices made where `docs/PROJECT.md` was silent, ambiguous, or could not be followed on this
 machine. Newest phase first.
 
+## Phase 5.1 — Language toggle and speed (2026-10-01)
+
+User feedback after testing Phase 5: generation is slow and some CVs mixed French and English.
+
+- **Language is decided by code, not by llama3.** `LanguageGuess` counts EN/FR function words; the
+  job's language comes from it when the text clearly leans one way (the model mislabelled an
+  English offer asking for "fluent French"). The model's answer is only a tie-breaker.
+- **Language check in the fact validator.** Summary and letter paragraphs written in the wrong
+  language become a review flag (golden case `06-wrong-language.json`). Short bullets are not
+  checked (too few words to decide).
+- **Mixing came from copied facts.** Titles, descriptions, skill group names and spoken languages
+  are copied from the profile (by design, so they cannot be invented); an English profile gave
+  English labels in a French CV. When the profile language differs from the job language, the
+  pipeline translates those labels (`DocumentTranslator`) after assembling the CV. Organisations,
+  dates, links, skill items and names are never sent to the model.
+- **FR ⇄ EN toggle** (not in PROJECT.md): `POST /api/documents/{id}/translate {language}` creates a
+  **new version** in the other language (original kept), re-validated in the target language, same
+  template and match score. Synchronous (~1–2 min) like section regenerate. Texts already clearly in
+  the target language are skipped; texts the model drops come back unchanged; batches of 25.
+  Translation uses the main (8B) model: it is writing, quality matters.
+- **Speed: two models.** `OLLAMA_FAST_MODEL` (dev: `llama3.2:3b`) runs job analysis and the match
+  judgment (extraction / yes-partial-no); CV, letter, CV import and translation stay on 8B.
+  Empty = main model for everything (PROJECT.md default).
+- **Shorter CVs:** max 4 bullets per experience (was 5), 3 per project, 2-sentence summary — less
+  to generate, and closer to one page.
+- **`.gitattributes`** (`* text=auto eol=lf`): stops the LF/CRLF conversion warnings on Windows and keeps shell scripts and Dockerfiles LF.
+
 ## Phase 5 — LaTeX PDF (2026-10-01)
 
 - **Engine: Tectonic (XeTeX) instead of TeX Live pdfLaTeX.** PROJECT.md allows "Tectonic or

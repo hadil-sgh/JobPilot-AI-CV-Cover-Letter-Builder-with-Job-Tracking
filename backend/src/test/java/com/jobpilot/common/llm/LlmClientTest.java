@@ -43,7 +43,7 @@ class LlmClientTest {
     @Test
     void usesTheFallbackModelWhenTheMainOneDoesNotFitInMemory() {
         FakeModel model = new FakeModel();
-        LlmClient client = new LlmClient(ChatClient.builder(model), new ObjectMapper(), "llama3.2:3b");
+        LlmClient client = new LlmClient(ChatClient.builder(model), new ObjectMapper(), "llama3.2:3b", "");
 
         Answer a = client.callJson("system", "user", Answer.class, Function.identity(), "this test");
 
@@ -53,10 +53,18 @@ class LlmClientTest {
 
     @Test
     void withoutFallbackTheUserGetsAClearMemoryMessage() {
-        LlmClient client = new LlmClient(ChatClient.builder(new FakeModel()), new ObjectMapper(), "");
+        LlmClient client = new LlmClient(ChatClient.builder(new FakeModel()), new ObjectMapper(), "", "");
         assertThatThrownBy(() -> client.callJson("s", "u", Answer.class, Function.identity(), "this test"))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("not have enough free memory");
+    }
+
+    @Test
+    void fastCallsUseTheFastModel() {
+        FakeModel model = new FakeModel();
+        LlmClient client = new LlmClient(ChatClient.builder(model), new ObjectMapper(), "", "llama3.2:3b");
+        assertThat(client.callJsonFast("s", "u", Answer.class, Function.identity(), "x").value()).isEqualTo("from fallback");
+        assertThat(model.calls).containsExactly("llama3.2:3b");
     }
 
     @Test

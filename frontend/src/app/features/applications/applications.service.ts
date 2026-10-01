@@ -78,4 +78,11 @@ export class ApplicationsService {
       section,
     });
   }
+
+  /** Translates a document (EN ⇄ FR) into a new version. Synchronous on the server: ~1–2 min. */
+  translate<T extends CvContent | LetterContent>(docId: string, language: Lang): Observable<GeneratedDocument<T>> {
+    return this.http.post<GeneratedDocument<T>>(`/api/documents/${encodeURIComponent(docId)}/translate`, { language });
+  }
 }
+
+export type Lang = 'en' | 'fr';
