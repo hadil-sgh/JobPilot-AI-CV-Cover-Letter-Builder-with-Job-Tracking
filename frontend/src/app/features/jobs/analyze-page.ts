@@ -1,10 +1,11 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { errorMessage } from '../../core/http/api-error';
 import { EvidenceReport, Job, JobSummary, coverage, matchLevel } from './jobs.models';
+import { ApplicationsService } from '../applications/applications.service';
 import { JobsService } from './jobs.service';
 
 /**
@@ -101,6 +102,13 @@ import { JobsService } from './jobs.service';
                 }
               </div>
             </div>
+          </div>
+
+          <div class="d-flex justify-content-end mb-4">
+            <button class="btn btn-primary" type="button" [disabled]="creating()" (click)="createApplication(j)">
+              @if (creating()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              @else { <i class="bx bx-magic-wand me-1"></i> }Create application &amp; generate CV + letter
+            </button>
           </div>
 
           @if (j.warnings.length) {
@@ -214,6 +222,9 @@ import { JobsService } from './jobs.service';
 })
 export class AnalyzePage {
   private readonly jobs = inject(JobsService);
+  private readonly applications = inject(ApplicationsService);
+  private readonly router = inject(Router);
+  readonly creating = signal(false);
 
   readonly form = inject(FormBuilder).nonNullable.group({
     text: ['', [Validators.required, Validators.minLength(100), Validators.maxLength(100000)]],
@@ -256,6 +267,18 @@ export class AnalyzePage {
     this.jobs.get(summary.id).subscribe({
       next: (job) => this.show(job),
       error: (err) => this.error.set(errorMessage(err)),
+    });
+  }
+
+  createApplication(job: Job): void {
+    this.creating.set(true);
+    this.error.set(null);
+    this.applications.create(job.id).subscribe({
+      next: (app) => this.router.navigate(['/applications', app.id], { queryParams: { generate: 1 } }),
+      error: (err) => {
+        this.creating.set(false);
+        this.error.set(errorMessage(err, 'Could not create the application.'));
+      },
     });
   }
 

@@ -3,6 +3,65 @@
 Choices made where `docs/PROJECT.md` was silent, ambiguous, or could not be followed on this
 machine. Newest phase first.
 
+## Phase 4 — Generation (2026-10-01)
+
+- **Facts by construction, not by validation.** Prompt C returns only `{summary, experience:
+  [{ref, bullets}], projects: [{ref, bullets}], skills: [{group, items}]}` with short evidence
+  refs (`E1`, `P2`, `D1`, `C1`, `S1` — small models copy these reliably, unlike UUIDs).
+  `ContentAssembler` copies name, contact, titles, organisations, dates, education,
+  certifications and spoken languages from the profile snapshot by ref. So the doc's validator
+  rules 1–2 (employers/schools exist, dates match) hold structurally; unknown refs are ignored
+  and reported. Experiences the model forgets are appended (tailoring reorders, it never silently
+  drops a real job); skills not in the profile are dropped, forgotten ones appended.
+- **`FactValidator`** (3.6, rules 3–4 + extras) on everything the model wrote: numbers must appear
+  in the profile; job-ad technologies (keywords + capitalised/acronym/digit tokens of the
+  requirements, e.g. "Kubernetes", "CI/CD") must appear in the profile; a capitalised name after
+  "at / for / with / joined / chez / pour / au sein de…" must be one of the user's organisations
+  or the target company; skills-section items must exist in the profile. Violations → one
+  corrective retry with the list appended as `<previous_violations>`; what remains becomes
+  `review` flags shown per section in the editor (content is kept: the user decides). Golden-file
+  tests in `src/test/resources/golden/validator/` (add a JSON file to add a case).
+- **Prompt-injection hygiene for generation**: company, role, tone, candidate name, job analysis
+  and evidence are all delimited DATA in the user message (delimiters stripped from content);
+  only the controlled language name is substituted into system prompts.
+- **Evidence pack**: every profile item gets a ref; relevance = best hybrid retrieval score over
+  all requirements (Phase 3). Experience + education always included; other items by relevance
+  within 9,000 characters; skill groups always (they are short). Summary/languages chunks are
+  header facts, not citable items.
+- **Match score (prompt E)**: one batched LLM call returns yes/partial/no per requirement (falls
+  back to the retrieval score when the model skips one). Per requirement: `0.6 × verdict +
+  0.4 × retrieval strength`; must-have weight 2, nice-to-have 1; a requirement with **no retrieved
+  evidence is forced to "no"** whatever the model says. Gaps = requirements scoring < 0.4.
+  Stored in the CV `content_json.match` (+ `generated_documents.match_score`); not printed on the CV.
+- **Async jobs**: `@Async` on a dedicated single-thread executor (the local LLM serves one request
+  at a time anyway). Job rows carry a `step` (EVIDENCE → MATCH → CV → LETTER → SAVING) for the
+  progress bar; the editor polls every 3 s. Inputs are validated synchronously before queueing
+  (clear 400s for empty profile / missing job). A **partial unique index** guarantees one active
+  job per application (two quick clicks → 409). Jobs left QUEUED/RUNNING by a restart are marked
+  FAILED at startup. V3 migration adds `created_at`, `step`, `cv_document_id`,
+  `letter_document_id` to `generation_jobs`.
+- **No DB transaction around LLM calls**: the pipeline reads a detached `ProfileSnapshot` in a short
+  read-only transaction, runs the LLM steps, then saves documents in a short transaction.
+- **Minimal applications in Phase 4**: `generated_documents.application_id` is NOT NULL, so
+  generation needs an application. Added create-from-analysed-job, get and recent list; full
+  tracker CRUD/filters/status workflow stays in Phase 6. New applications start as `DRAFT`
+  (the schema default `PENDING` means "sent").
+- **Editing**: each full generation creates a new version (FR-14); manual edits and section
+  regeneration update the current version in place. Edits can change summary, bullets,
+  experience order, which projects show, skill groups and letter text; facts and the match score
+  are always taken from the stored document (to change a fact, edit the profile). Every save and
+  regenerate re-runs the fact check, so review flags always describe the current text.
+- **Section regenerate** (`POST /api/documents/{id}/regenerate-section`, sections `summary`,
+  `skills`, `experience:E1`, `projects:P1`, `letter`) is synchronous (~1–2 min) and uses
+  temperature 0.7 to produce a different version; only the requested section is replaced.
+- **Preview**: escaped HTML preview next to the editor until Phase 5 provides the PDF.
+- **Fail fast on LLM errors**: first real run hit Ollama's "model requires more system memory
+  (2.4 GiB) than is available (1.5 GiB)" (the PC had 0.8 GB free RAM). Spring AI's default retry
+  (10 attempts, back-off up to minutes) kept the job "RUNNING" for 14+ minutes. Now
+  `spring.ai.retry.max-attempts: 2` (2–10 s back-off) and `LlmClient` turns the out-of-memory error
+  into a clear 503 ("close some apps and try again"). The restart recovery marked the stuck job
+  FAILED as designed. **Not yet verified end to end with the real model** because of the RAM limit.
+
 ## Phase 3 — RAG core (2026-09-25)
 
 - **Own pgvector SQL instead of Spring AI `PgVectorStore`.** The schema (PROJECT.md 2.4) already

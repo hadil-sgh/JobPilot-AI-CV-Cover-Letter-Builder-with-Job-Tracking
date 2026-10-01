@@ -70,7 +70,17 @@ Backend `com.jobpilot`:
   `LenientStringDeserializer`. `common.text.TextClean` — shared sanitising.
 - Integration tests get `FakeEmbeddingModel` automatically (see `AbstractIntegrationTest`);
   mock `CvStructurer` / `JobAnalyzer` with `@MockitoBean`.
-- Later: `application`, `generation`, `document`, `template`, `stats`, `mail`,
+- `application` — minimal (Phase 4): create from an analysed job, get, recent list. Tracker in Phase 6.
+- `generation` — `GenerationService` (start/poll; one active job per application, DB-enforced),
+  `GenerationRunner` (`@Async` on the generation executor, progress steps, restart recovery),
+  `GenerationPipeline` (snapshot → evidence pack → match → CV → letter, validate + 1 retry),
+  `EvidencePackBuilder` (refs E1/P1/D1/C1/S1), `ContentAssembler` (facts copied from the profile
+  by ref), `MatchScorer`, `DocumentService`/`DocumentEdits` (edits, section regenerate),
+  `llm.GenerationLlm` (prompts C/D/E — mock it in tests), `validation.FactValidator` + `FactBase`
+  (golden tests in `src/test/resources/golden/validator/`), `content.CvContent`/`LetterContent`
+  (the stored JSON; new CV content = new field here + template block).
+- `common.config.AsyncConfig` — `indexerExecutor` and `generationExecutor` (one thread each).
+- Later: `generation`, `document`, `template`, `stats`, `mail`,
   `notion`, `export` (PROJECT.md 2.3).
 
 Frontend `src/app`:
@@ -78,7 +88,9 @@ Frontend `src/app`:
   `authGuard`/`guestGuard`. `core/http/api-error.ts` for user-facing error text.
 - `layout/shell.ts` — Sneat vertical menu + navbar. `features/<page>/` — one folder per page
   (`profile/`: page, `ItemForm`, `HeaderForm`, `ProfileService` signal store, models + helpers;
-  `jobs/`: `AnalyzePage` — paste JD, analysis, per-requirement evidence).
+  `jobs/`: `AnalyzePage` — paste JD, analysis, per-requirement evidence, "create application";
+  `applications/`: models + `ApplicationsService`; `editor/`: `EditorPage` (job polling, match,
+  tabs), `CvEditor`, `LetterEditor`, `DocumentPreview` — all model text interpolated, never HTML).
 
 ## Working rules
 

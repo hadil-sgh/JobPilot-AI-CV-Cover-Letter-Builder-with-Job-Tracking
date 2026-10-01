@@ -1,4 +1,4 @@
-package com.jobpilot.rag;
+package com.jobpilot.common.config;
 
 import java.util.concurrent.Executor;
 
@@ -12,6 +12,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 public class AsyncConfig {
 
     public static final String INDEXER = "indexerExecutor";
+    public static final String GENERATION = "generationExecutor";
 
     /** One thread: profile re-indexes run one after another, never concurrently. */
     @Bean(INDEXER)
@@ -21,6 +22,18 @@ public class AsyncConfig {
         ex.setMaxPoolSize(1);
         ex.setQueueCapacity(500);
         ex.setThreadNamePrefix("indexer-");
+        ex.initialize();
+        return ex;
+    }
+
+    /** One thread: the local LLM serves one request at a time anyway; jobs queue up in order. */
+    @Bean(GENERATION)
+    Executor generationExecutor() {
+        ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(1);
+        ex.setMaxPoolSize(1);
+        ex.setQueueCapacity(100);
+        ex.setThreadNamePrefix("generation-");
         ex.initialize();
         return ex;
     }

@@ -51,7 +51,8 @@ public final class LexicalMatcher {
         return requirementTerms.stream().filter(chunk::contains).toList();
     }
 
-    static List<String> tokens(String text) {
+    /** All normalised tokens of a text (no stopword filtering). */
+    public static List<String> tokens(String text) {
         if (text == null) {
             return List.of();
         }

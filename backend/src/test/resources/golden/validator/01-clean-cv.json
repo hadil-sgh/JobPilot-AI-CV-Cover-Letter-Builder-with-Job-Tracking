@@ -1,0 +1,13 @@
+{
+  "description": "Everything is supported by the profile: no findings",
+  "profileText": "Experience: Software Engineering Intern at Vermeg (2024-02 to 2024-08)\n- Built REST APIs with Spring Boot 3 and PostgreSQL\n- Reduced report generation time by 40% with indexes and caching\nSkills (Tools): Docker, Git, GitHub Actions",
+  "company": "Nexa Fintech",
+  "keywords": ["Java 17", "Spring Boot", "PostgreSQL", "Docker"],
+  "requirements": ["Experience with Docker and Git", "Knowledge of Kubernetes"],
+  "cv": {
+    "summary": "Backend developer who built REST APIs with Spring Boot and PostgreSQL at Vermeg.",
+    "experience": [{"ref": "E1", "bullets": ["Built Spring Boot 3 REST APIs on PostgreSQL", "Cut report generation time by 40% using indexes and caching"]}],
+    "skills": [{"group": "Tools", "items": ["Docker", "Git"]}]
+  },
+  "expected": []
+}

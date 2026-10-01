@@ -347,6 +347,7 @@ users 1─* email_accounts
 | GET | `/api/jobs` · `/api/jobs/{id}` · `/api/jobs/{id}/evidence` | Recent analyses, one analysis, profile evidence per requirement *(as built, Phase 3)* |
 | GET · POST · GET | `/api/profile/index` · `/api/profile/reindex` · `/api/profile/search?q=` | Vector index status, rebuild, raw retrieval *(as built, Phase 3)* |
 | POST | `/api/applications` | Create application (company, JD, metadata) |
+| GET | `/api/applications/{id}` · `/api/applications/{id}/generation` · `/api/applications/{id}/documents` | One application, its latest generation job, its document versions *(as built, Phase 4)* |
 | GET | `/api/applications?status=&q=` | List/filter tracker |
 | PATCH | `/api/applications/{id}` | Update status, notes, answers |
 | POST | `/api/applications/{id}/generate` | Start async generation (CV + letter) |

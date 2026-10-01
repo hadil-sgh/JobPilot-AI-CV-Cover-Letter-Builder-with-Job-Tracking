@@ -14,6 +14,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.jobpilot.common.config.AsyncConfig;
 import com.jobpilot.profile.ProfileChangedEvent;
 import com.jobpilot.profile.ProfileRepository;
 import com.jobpilot.rag.ProfileChunkRepository.StoredChunk;

@@ -20,6 +20,15 @@ spring:
       connect-timeout: 10s
       read-timeout: 10m         # local 8B model on a 4 GB GPU: ~2 min per CV, more on CPU
   ai:
+    # Fail fast: the default (10 attempts, back-off up to minutes) left a job "running" for 20+ min
+    # when Ollama could not load the model. One retry is enough for a transient hiccup.
+    retry:
+      max-attempts: 2
+      on-client-errors: false
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 10s
     ollama:
       base-url: ${SPRING_AI_OLLAMA_BASE_URL:http://localhost:11434}
       init:
