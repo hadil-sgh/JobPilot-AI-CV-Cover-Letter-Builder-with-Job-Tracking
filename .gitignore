@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Backend (Maven)
+backend/target/
+
+# Frontend (Angular)
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime storage / generated output
+storage/
+*.log
+
+# Local Claude Code session config
+.claude/

@@ -1,0 +1,17 @@
+{
+  "description": "French letter: unknown employer after 'chez', invented years of experience",
+  "profileText": "Experience: Stagiaire développeur at Vermeg (2024-02 to 2024-08)\n- Développement d'API REST avec Spring Boot\nFormation: Diplôme d'ingénieur at ESPRIT (2020-09 to 2025-06)",
+  "company": "Nexa Fintech",
+  "keywords": ["Spring Boot", "Angular"],
+  "requirements": ["Maîtrise de Java et Spring Boot"],
+  "letter": {
+    "greeting": "Madame, Monsieur,",
+    "paragraphs": [
+      "Ingénieur diplômé de ESPRIT, j'ai développé des API REST avec Spring Boot chez Vermeg.",
+      "Avec 3 ans d'expérience chez Capgemini, je maîtrise également Angular.",
+      "Rejoindre Nexa Fintech serait une étape naturelle."
+    ],
+    "closing": "Je vous prie d'agréer mes salutations distinguées."
+  },
+  "expected": ["letter|The number \"3\"", "letter|Mentions \"Capgemini\"", "letter|Mentions \"Angular\""]
+}

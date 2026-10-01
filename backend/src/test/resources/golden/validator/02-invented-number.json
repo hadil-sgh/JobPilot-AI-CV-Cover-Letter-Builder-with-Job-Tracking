@@ -1,0 +1,12 @@
+{
+  "description": "The model inflated 40% to 60% and invented a team size",
+  "profileText": "Experience: Software Engineering Intern at Vermeg (2024-02 to 2024-08)\n- Reduced report generation time by 40% with indexes and caching",
+  "company": "Nexa Fintech",
+  "keywords": ["Java"],
+  "requirements": [],
+  "cv": {
+    "summary": "Intern at Vermeg.",
+    "experience": [{"ref": "E1", "bullets": ["Cut report generation time by 60% using indexes", "Mentored a team of 5 interns"]}]
+  },
+  "expected": ["experience:E1|The number \"60%\"", "experience:E1|The number \"5\""]
+}

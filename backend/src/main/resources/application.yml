@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: jobpilot
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/jobpilot}
+    username: ${SPRING_DATASOURCE_USERNAME:jobpilot}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:change_me}}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  http:
+    client:
+      connect-timeout: 10s
+      read-timeout: 10m         # local 8B model on a 4 GB GPU: ~2 min per CV, more on CPU
+  ai:
+    # Fail fast: the default (10 attempts, back-off up to minutes) left a job "running" for 20+ min
+    # when Ollama could not load the model. One retry is enough for a transient hiccup.
+    retry:
+      max-attempts: 2
+      on-client-errors: false
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 10s
+    ollama:
+      base-url: ${SPRING_AI_OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never   # models are pulled by ollama-init / `ollama pull`
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:llama3.1:8b}
+          temperature: 0.2
+          num-ctx: 8192
+      embedding:
+        options:
+          model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+jobpilot:
+  jwt:
+    secret: ${JWT_SECRET:}
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+  storage-dir: ${STORAGE_DIR:./storage}
+
+# Feature flags: half-built features ship switched off (PROJECT.md 3.9, point 4).
+features:
+  ats-check: false
+  stats: false
+  notion: false
+  email: false

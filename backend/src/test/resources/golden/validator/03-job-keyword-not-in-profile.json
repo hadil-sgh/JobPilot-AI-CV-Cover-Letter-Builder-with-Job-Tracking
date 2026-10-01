@@ -1,0 +1,18 @@
+{
+  "description": "Mirroring a job keyword the candidate does not have (Kubernetes) is flagged; supported ones (Docker) are not",
+  "profileText": "Experience: Backend Intern at Vermeg\n- Packaged services with Docker and Git\nSkills (Tools): Docker, Git",
+  "company": "Nexa Fintech",
+  "keywords": ["Docker", "CI/CD"],
+  "requirements": ["Experience with Docker and Git", "Knowledge of Kubernetes"],
+  "cv": {
+    "summary": "Developer experienced with Docker, Kubernetes and CI/CD pipelines.",
+    "experience": [{"ref": "E1", "bullets": ["Packaged services with Docker and deployed them on Kubernetes"]}],
+    "skills": [{"group": "Tools", "items": ["Docker", "Kubernetes"]}]
+  },
+  "expected": [
+    "summary|Mentions \"Kubernetes\"",
+    "summary|Mentions \"CI/CD\"",
+    "experience:E1|Mentions \"Kubernetes\"",
+    "skills|Skill \"Kubernetes\""
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Letter claims a past employer the candidate never had; the target company and real employer are fine",
+  "profileText": "Experience: Software Engineering Intern at Vermeg (2024-02 to 2024-08)\n- Built REST APIs with Spring Boot",
+  "company": "Nexa Fintech",
+  "keywords": ["Spring Boot"],
+  "requirements": [],
+  "letter": {
+    "greeting": "Dear Hiring Manager,",
+    "paragraphs": [
+      "I would love to bring my backend experience to Nexa Fintech's platform team.",
+      "At Vermeg I built REST APIs with Spring Boot, and before that I worked at Google Cloud on data tools.",
+      "I am excited about joining Nexa Fintech and working with your team.",
+      "At Amazon, I also led a migration."
+    ],
+    "closing": "Kind regards,"
+  },
+  "expected": ["letter|Mentions \"Google Cloud\"", "letter|Mentions \"Amazon\""]
+}
