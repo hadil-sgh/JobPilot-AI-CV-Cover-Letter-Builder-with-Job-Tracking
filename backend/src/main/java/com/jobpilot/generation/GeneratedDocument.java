@@ -130,4 +130,44 @@ public class GeneratedDocument {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    public String getTemplateVersion() {
+        return templateVersion;
+    }
+
+    public Map<String, Object> getTemplateOptions() {
+        return templateOptions;
+    }
+
+    public String getPdfPath() {
+        return pdfPath;
+    }
+
+    public Integer getAtsScore() {
+        return atsScore;
+    }
+
+    public JsonNode getAtsReport() {
+        return atsReport;
+    }
+
+    /** Content changed: the old PDF and ATS result no longer describe it (template + options are kept). */
+    public void contentChanged() {
+        this.pdfPath = null;
+        this.latexSource = null;
+        this.atsScore = null;
+        this.atsReport = null;
+    }
+
+    /** Records a successful render (PROJECT.md 2.4: template + options are stored so any CV can be re-rendered). */
+    public void rendered(String template, String templateVersion, Map<String, Object> options, String latexSource,
+                         String pdfPath, Integer atsScore, JsonNode atsReport) {
+        this.template = template;
+        this.templateVersion = templateVersion;
+        this.templateOptions = new HashMap<>(options);
+        this.latexSource = latexSource;
+        this.pdfPath = pdfPath;
+        this.atsScore = atsScore;
+        this.atsReport = atsReport;
+    }
 }

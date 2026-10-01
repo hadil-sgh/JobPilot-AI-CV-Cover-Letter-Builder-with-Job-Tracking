@@ -20,9 +20,11 @@ LaTeX into ATS-friendly PDFs, track applications (synced to Notion), send by ema
 - DB: PostgreSQL 16 + pgvector (`pgvector/pgvector:pg16`), migrations in
   `backend/src/main/resources/db/migration`.
 - LLM: Llama via Ollama. Dev uses the **native Windows Ollama** (GPU) at
-  `http://host.docker.internal:11434` with `llama3:latest`; Docker Ollama is opt-in
+  `http://host.docker.internal:11434` with `llama3:latest` (8B) and `OLLAMA_FALLBACK_MODEL=llama3.2:3b`
+  used automatically when RAM is short (see DECISIONS.md Phase 5: .wslconfig 3 GB, Ollama q8 KV cache); Docker Ollama is opt-in
   (`COMPOSE_PROFILES=docker-ollama`). Model names come from `.env` (`OLLAMA_CHAT_MODEL`, ...).
-- PDF: LaTeX in a sandboxed `latex-worker` container (Phase 5).
+- PDF: LaTeX via **Tectonic (XeTeX)** in the sandboxed `latex-worker` container (Alpine, ~150 MB;
+  packages cached at build by `latex-worker/warmup/warmup.tex` — add new packages there).
 - Node 24, Maven 3.9.9, Docker Desktop 27.
 
 ## Commands
@@ -31,6 +33,7 @@ LaTeX into ATS-friendly PDFs, track applications (synced to Notion), send by ema
 # Backend (backend/) — Docker Desktop must be running for Testcontainers
 mvn compile
 mvn test                       # unit + integration (pgvector Testcontainer)
+mvn verify                     # + *IT tests (builds/starts the real latex-worker image)
 mvn spring-boot:run            # needs Postgres on localhost:5432 and JWT_SECRET env var
 
 # Frontend (frontend/)
@@ -79,6 +82,11 @@ Backend `com.jobpilot`:
   `llm.GenerationLlm` (prompts C/D/E — mock it in tests), `validation.FactValidator` + `FactBase`
   (golden tests in `src/test/resources/golden/validator/`), `content.CvContent`/`LetterContent`
   (the stored JSON; new CV content = new field here + template block).
+- `template` — `TemplateRegistry`/`ClasspathTemplateRegistry` (manifests in
+  `resources/templates/latex/<id>/`, option validation, FreeMarker square-bracket syntax +
+  `LatexOutputFormat` auto-escaping), `LatexEscaper`, `DocumentRenderer`/`LatexRenderer`,
+  `LatexWorkerClient`, `AtsChecker`. New look = new template folder; `generation.DocumentModels`
+  builds the template model (labels/dates per language).
 - `common.config.AsyncConfig` — `indexerExecutor` and `generationExecutor` (one thread each).
 - Later: `generation`, `document`, `template`, `stats`, `mail`,
   `notion`, `export` (PROJECT.md 2.3).
@@ -90,7 +98,8 @@ Frontend `src/app`:
   (`profile/`: page, `ItemForm`, `HeaderForm`, `ProfileService` signal store, models + helpers;
   `jobs/`: `AnalyzePage` — paste JD, analysis, per-requirement evidence, "create application";
   `applications/`: models + `ApplicationsService`; `editor/`: `EditorPage` (job polling, match,
-  tabs), `CvEditor`, `LetterEditor`, `DocumentPreview` — all model text interpolated, never HTML).
+  tabs), `CvEditor`, `LetterEditor`, `DocumentPreview`, `PdfPanel` (template picker + options form
+  generated from the manifest, ATS report, PDF iframe) — all model text interpolated, never HTML).
 
 ## Working rules
 

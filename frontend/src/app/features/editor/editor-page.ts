@@ -17,6 +17,7 @@ import { ApplicationsService } from '../applications/applications.service';
 import { CvEditor } from './cv-editor';
 import { DocumentPreview } from './document-preview';
 import { LetterEditor } from './letter-editor';
+import { PdfPanel } from './pdf-panel';
 
 type Tab = 'cv' | 'letter';
 const POLL_MS = 3000;
@@ -27,7 +28,7 @@ const POLL_MS = 3000;
  */
 @Component({
   selector: 'app-editor-page',
-  imports: [RouterLink, CvEditor, LetterEditor, DocumentPreview],
+  imports: [RouterLink, CvEditor, LetterEditor, DocumentPreview, PdfPanel],
   template: `
     @if (app(); as a) {
       <div class="page-title-row">
@@ -139,8 +140,21 @@ const POLL_MS = 3000;
         </div>
         <div class="col-xl-5">
           <div class="position-sticky" style="top: 1rem">
-            <h6 class="text-muted text-uppercase small mb-2">Preview</h6>
-            @if (tab() === 'cv') { <app-document-preview [cv]="c" /> } @else { <app-document-preview [letter]="letter()" /> }
+            <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Preview mode">
+              <button type="button" class="btn" [class.btn-primary]="preview() === 'live'" [class.btn-outline-primary]="preview() !== 'live'"
+                      (click)="preview.set('live')">Live preview</button>
+              <button type="button" class="btn" [class.btn-primary]="preview() === 'pdf'" [class.btn-outline-primary]="preview() !== 'pdf'"
+                      (click)="preview.set('pdf')"><i class="bx bxs-file-pdf me-1"></i>PDF &amp; ATS</button>
+            </div>
+            @if (preview() === 'live') {
+              @if (tab() === 'cv') { <app-document-preview [cv]="c" /> } @else { <app-document-preview [letter]="letter()" /> }
+            } @else {
+              @if (tab() === 'cv' && cvDoc(); as d) {
+                <app-pdf-panel [doc]="d" [dirty]="dirty()" [fileName]="pdfName('CV')" (rendered)="onRendered($event)" />
+              } @else if (letterDoc(); as d) {
+                <app-pdf-panel [doc]="d" [dirty]="dirty()" [fileName]="pdfName('Letter')" (rendered)="onRendered($event)" />
+              }
+            }
           </div>
         </div>
       </div>
@@ -181,6 +195,7 @@ export class EditorPage {
   readonly loaded = signal(false);
   readonly error = signal<string | null>(null);
   readonly tab = signal<Tab>('cv');
+  readonly preview = signal<'live' | 'pdf'>('live');
 
   readonly generating = computed(() => {
     const s = this.job()?.status;
@@ -274,6 +289,17 @@ export class EditorPage {
         this.error.set(errorMessage(e, 'Regeneration failed.'));
       },
     });
+  }
+
+  /** A render updates the document's template/options/ATS fields; its content is unchanged. */
+  onRendered(doc: GeneratedDocument<CvContent | LetterContent>): void {
+    if (doc.type === 'CV') this.cvDoc.set(doc as GeneratedDocument<CvContent>);
+    else this.letterDoc.set(doc as GeneratedDocument<LetterContent>);
+  }
+
+  pdfName(kind: string): string {
+    const a = this.app();
+    return `${kind} - ${a?.company ?? 'JobPilot'}.pdf`.replace(/[^\p{L}\p{N} ._-]/gu, '');
   }
 
   short(text: string): string {

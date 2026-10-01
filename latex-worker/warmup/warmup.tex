@@ -1,0 +1,25 @@
+% Build-time warm-up: compiles once with network so Tectonic caches every package, font and
+% format the templates need. At runtime the worker uses --only-cached and has no network.
+% KEEP IN SYNC with backend/src/main/resources/templates/latex/*/ (packages + font files used).
+\documentclass[11pt]{article}
+\usepackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont = lmroman10-bold.otf,
+  ItalicFont = lmroman10-italic.otf,
+  BoldItalicFont = lmroman10-bolditalic.otf,
+  Ligatures = NoCommon]
+\setsansfont{lmsans10-regular.otf}[BoldFont = lmsans10-bold.otf, Ligatures = NoCommon]
+\usepackage[a4paper,margin=1.6cm]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Warm-up}, pdfauthor={JobPilot}, pdflang={en}}
+\begin{document}
+\section*{Experience}
+\textbf{Bold} \textit{italic} \textbf{\textit{bold italic}} \textsf{sans \textbf{bold}}
+\begin{itemize}[leftmargin=1.2em, itemsep=0pt]
+  \item Français : é è à ç ô — “quotes” ‘single’ – en dash … ellipsis © € ü ñ
+\end{itemize}
+\href{https://example.com}{example.com} \color{blue} colour \hfill right
+\end{document}

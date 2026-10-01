@@ -116,6 +116,12 @@
             <version>${poi.version}</version>
         </dependency>
 
+        <!-- LaTeX templates (square-bracket syntax + auto-escaping LaTeX output format) -->
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+        </dependency>
+
         <!-- HTML to text for pasted job descriptions -->
         <dependency>
             <groupId>org.jsoup</groupId>
@@ -168,6 +174,22 @@
                 <configuration>
                     <argLine>"-Djdk.net.unixdomain.tmpdir=${project.build.directory}"</argLine>
                 </configuration>
+            </plugin>
+            <!-- *IT tests (e.g. the real latex-worker container) run in `mvn verify`, not `mvn test`. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <argLine>"-Djdk.net.unixdomain.tmpdir=${project.build.directory}"</argLine>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -1,0 +1,21 @@
+{
+  "id": "ats-classic",
+  "name": "ATS Classic",
+  "version": "1.0.0",
+  "description": "Single column, standard headings, plain-text contact details, no graphics. The safest choice for applicant tracking systems.",
+  "atsSafe": true,
+  "engine": "xetex",
+  "maxPages": 1,
+  "languages": ["en", "fr"],
+  "sections": ["summary", "experience", "projects", "education", "skills", "certifications", "languages"],
+  "options": {
+    "fontSize": { "type": "enum", "label": "Font size", "values": ["10pt", "11pt", "12pt"], "default": "10pt" },
+    "accentColor": { "type": "color", "label": "Accent colour", "default": "#1F3A5F" },
+    "density": { "type": "enum", "label": "Spacing", "values": ["compact", "normal", "airy"], "default": "normal" },
+    "sectionOrder": {
+      "type": "list",
+      "label": "Section order",
+      "default": ["summary", "experience", "projects", "education", "skills", "certifications", "languages"]
+    }
+  }
+}

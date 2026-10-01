@@ -8,6 +8,9 @@ export function errorMessage(err: unknown, fallback = 'Something went wrong. Ple
     if (err.status === 0) {
       return 'Cannot reach the server. Is the backend running?';
     }
+    if (err.status === 504) {
+      return 'The server gave up waiting for the AI model (over 10 minutes). Your computer may be low on memory: close some apps and try again.';
+    }
     const body = err.error as Partial<ApiError> | null;
     if (body?.fieldErrors && Object.keys(body.fieldErrors).length > 0) {
       return Object.entries(body.fieldErrors)

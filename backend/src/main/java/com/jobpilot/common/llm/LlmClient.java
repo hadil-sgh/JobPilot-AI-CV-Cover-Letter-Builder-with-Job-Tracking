@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -24,12 +25,18 @@ public class LlmClient {
 
     private static final Logger log = LoggerFactory.getLogger(LlmClient.class);
 
+    static final String OUT_OF_MEMORY = "requires more system memory";
+
     private final ChatClient chat;
     private final ObjectMapper json;
+    /** Smaller model used when the main one cannot be loaded for lack of RAM (empty = no fallback). */
+    private final String fallbackModel;
 
-    public LlmClient(ChatClient.Builder builder, ObjectMapper objectMapper) {
+    public LlmClient(ChatClient.Builder builder, ObjectMapper objectMapper,
+                     @Value("${jobpilot.llm.fallback-model:}") String fallbackModel) {
         this.chat = builder.build();
         this.json = LlmJson.lenientMapper(objectMapper);
+        this.fallbackModel = fallbackModel == null ? "" : fallbackModel.strip();
     }
 
     /**
@@ -66,23 +73,50 @@ public class LlmClient {
 
     private String call(String system, String user, String what, double temperature) {
         try {
-            return chat.prompt()
-                    .system(system)
-                    .user(user)
-                    .options(OllamaOptions.builder().format("json").temperature(temperature).build())
-                    .call()
-                    .content();
-        } catch (ResourceAccessException e) {
-            log.error("Ollama unreachable", e);
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "The AI service is not reachable. Is Ollama running?");
+            return callModel(system, user, temperature, null);
         } catch (RuntimeException e) {
-            if (causeMessageContains(e, "requires more system memory")) {
-                log.error("Ollama cannot load the model: not enough free RAM ({})", e.getMessage());
-                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Your computer does not have enough free memory "
-                        + "to load the AI model right now. Close some apps (browser tabs, Docker containers) and try again.");
+            if (!causeMessageContains(e, OUT_OF_MEMORY) || fallbackModel.isEmpty()) {
+                throw mapError(e, what);
             }
-            log.error("Ollama call failed", e);
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "The AI model failed to process " + what + ". Try again later.");
+            // Not enough free RAM for the main model right now: answer with the smaller one instead of failing.
+            log.warn("Main model cannot be loaded (not enough free RAM); using fallback model {}", fallbackModel);
+            try {
+                return callModel(system, user, temperature, fallbackModel);
+            } catch (RuntimeException again) {
+                throw mapError(again, what);
+            }
         }
+    }
+
+    /** @param model null = the configured default (spring.ai.ollama.chat.options.model) */
+    private String callModel(String system, String user, double temperature, String model) {
+        OllamaOptions.Builder options = OllamaOptions.builder().format("json").temperature(temperature);
+        if (model != null) {
+            options.model(model);
+        }
+        return chat.prompt().system(system).user(user).options(options.build()).call().content();
+    }
+
+    private static ApiException mapError(RuntimeException e, String what) {
+        if (e instanceof ApiException api) {
+            return api;
+        }
+        if (e instanceof ResourceAccessException) {
+            if (causeMessageContains(e, "timed out")) {
+                log.error("Ollama did not answer in time", e);
+                return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "The AI model took too long to answer (over 9 minutes). "
+                        + "This usually means the computer is low on free memory: close some apps and try again, "
+                        + "or use a smaller model (OLLAMA_CHAT_MODEL).");
+            }
+            log.error("Ollama unreachable", e);
+            return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "The AI service is not reachable. Is Ollama running?");
+        }
+        if (causeMessageContains(e, OUT_OF_MEMORY)) {
+            log.error("Ollama cannot load the model: not enough free RAM ({})", e.getMessage());
+            return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Your computer does not have enough free memory "
+                    + "to load the AI model right now. Close some apps (browser tabs, Docker containers) and try again.");
+        }
+        log.error("Ollama call failed", e);
+        return new ApiException(HttpStatus.BAD_GATEWAY, "The AI model failed to process " + what + ". Try again later.");
     }
 }
