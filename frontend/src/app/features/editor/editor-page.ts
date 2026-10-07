@@ -131,7 +131,7 @@ const POLL_MS = 3000;
       </ul>
         <div class="d-flex align-items-center gap-2">
           @if (translating()) {
-            <small class="text-muted"><span class="spinner-border spinner-border-sm text-primary me-1"></span>Translating… about 1–2 min</small>
+            <small class="text-muted"><span class="spinner-border spinner-border-sm text-primary me-1"></span>Translating… this can take a few minutes</small>
           }
           <div class="btn-group btn-group-sm" role="group" aria-label="Document language">
             @for (l of langs; track l) {
@@ -334,7 +334,7 @@ export class EditorPage {
         }
         const what = kind === 'cv' ? 'CV' : 'letter';
         if (!confirm(`There is no ${lang === 'fr' ? 'French' : 'English'} ${what} yet. Translate it now? `
-            + 'This creates a new version and takes about 1–2 minutes.')) return;
+            + 'This creates a new version and takes a few minutes (up to ~8 on a small GPU).')) return;
         this.translating.set(true);
         this.api.translate<CvContent & LetterContent>(doc.id, lang).subscribe({
           next: (d) => {

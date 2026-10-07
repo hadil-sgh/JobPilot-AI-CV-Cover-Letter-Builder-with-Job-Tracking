@@ -86,7 +86,7 @@ public class GenerationController {
     public record TranslateRequest(@NotBlank @Pattern(regexp = "en|fr") String language) {
     }
 
-    /** Translates a document (EN ⇄ FR) into a new version (synchronous, ~1–2 min). */
+    /** Translates a document (EN ⇄ FR) into a new version (synchronous, a few minutes). */
     @PostMapping("/api/documents/{id}/translate")
     public DocumentDto translate(@AuthenticationPrincipal AuthUser user, @PathVariable UUID id,
                                  @Valid @RequestBody TranslateRequest req) {

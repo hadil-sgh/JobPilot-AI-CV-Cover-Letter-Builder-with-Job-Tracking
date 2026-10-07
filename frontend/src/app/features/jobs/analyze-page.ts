@@ -184,7 +184,7 @@ import { JobsService } from './jobs.service';
             <div class="col-md-6 mb-4">
               <div class="card h-100">
                 <h5 class="card-header">Keywords</h5>
-                <div class="card-body d-flex flex-wrap gap-1">
+                <div class="card-body d-flex flex-wrap align-items-start align-content-start gap-1">
                   @for (k of j.analysis.keywords; track k) { <span class="badge bg-label-primary text-none">{{ k }}</span> }
                   @empty { <span class="text-muted small">None found.</span> }
                 </div>

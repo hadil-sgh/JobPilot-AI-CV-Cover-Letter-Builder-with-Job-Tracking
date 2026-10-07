@@ -20,7 +20,7 @@ User feedback after testing Phase 5: generation is slow and some CVs mixed Frenc
   dates, links, skill items and names are never sent to the model.
 - **FR ⇄ EN toggle** (not in PROJECT.md): `POST /api/documents/{id}/translate {language}` creates a
   **new version** in the other language (original kept), re-validated in the target language, same
-  template and match score. Synchronous (~1–2 min) like section regenerate. Texts already clearly in
+  template and match score. Synchronous (a few minutes) like section regenerate. Texts already clearly in
   the target language are skipped; texts the model drops come back unchanged; batches of 25.
   Translation uses the main (8B) model: it is writing, quality matters.
 - **Speed: two models.** `OLLAMA_FAST_MODEL` (dev: `llama3.2:3b`) runs job analysis and the match
@@ -128,7 +128,7 @@ User feedback after testing Phase 5: generation is slow and some CVs mixed Frenc
   are always taken from the stored document (to change a fact, edit the profile). Every save and
   regenerate re-runs the fact check, so review flags always describe the current text.
 - **Section regenerate** (`POST /api/documents/{id}/regenerate-section`, sections `summary`,
-  `skills`, `experience:E1`, `projects:P1`, `letter`) is synchronous (~1–2 min) and uses
+  `skills`, `experience:E1`, `projects:P1`, `letter`) is synchronous (a few minutes) and uses
   temperature 0.7 to produce a different version; only the requested section is replaced.
 - **Preview**: escaped HTML preview next to the editor until Phase 5 provides the PDF.
 - **Fail fast on LLM errors**: first real run hit Ollama's "model requires more system memory

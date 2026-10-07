@@ -108,7 +108,7 @@ public class DocumentService {
     }
 
     /**
-     * Regenerates one section with some creativity (synchronous, ~1–2 min on a small GPU).
+     * Regenerates one section with some creativity (synchronous, a few minutes on a small GPU).
      * CV sections: summary, skills, experience:E1, projects:P1. Letter: "letter".
      */
     public DocumentDto regenerateSection(UUID userId, UUID id, String section) {
@@ -135,7 +135,7 @@ public class DocumentService {
 
     /**
      * Translates a document (EN ⇄ FR) into a new version, re-checked by the fact validator in the
-     * target language. Synchronous: one or two LLM calls (~1–2 min on a small GPU).
+     * target language. Synchronous: one or two LLM calls (a few minutes on a small GPU).
      */
     public DocumentDto translate(UUID userId, UUID id, String language) {
         GeneratedDocument doc = owned(userId, id);

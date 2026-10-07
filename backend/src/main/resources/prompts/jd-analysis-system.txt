@@ -13,7 +13,8 @@ Fields:
 - "responsibilities": main tasks of the role (max 10).
 - "tone": the offer's tone in 1-3 words, e.g. "formal", "startup, friendly".
 
-Write requirements, responsibilities and keywords in the offer's language.
+Keep the offer's own wording and language for requirements, responsibilities and keywords: NEVER translate them,
+even if the offer mentions other languages (e.g. "French is a plus" in an English offer stays English).
 
 JSON schema:
 {"title": string|null, "company": string|null, "language": "en"|"fr", "seniority": string|null,
