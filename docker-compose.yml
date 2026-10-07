@@ -42,7 +42,20 @@ services:
       sh -c "ollama pull llama3.1:8b && ollama pull nomic-embed-text"
     restart: "no"
 
-  # latex-worker is added in Phase 5 (sandboxed, internal network only).
+  # Sandboxed LaTeX compiler (PROJECT.md 3.9): no internet (internal network, reachable only by the
+  # backend), read-only filesystem + small tmpfs, non-root, no capabilities, CPU/memory/PID limits.
+  latex-worker:
+    build: ./latex-worker
+    networks: [internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,uid=1000
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 64
+    restart: unless-stopped
 
   backend:
     build: ./backend
@@ -52,6 +65,9 @@ services:
       ollama:
         condition: service_started
         required: false       # absent when using a native Ollama
+      latex-worker:
+        condition: service_started
+    networks: [default, internal]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -60,10 +76,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.1:8b}
+      OLLAMA_FALLBACK_MODEL: ${OLLAMA_FALLBACK_MODEL:-}
+      OLLAMA_FAST_MODEL: ${OLLAMA_FAST_MODEL:-}
       OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       STORAGE_DIR: /app/storage
+      LATEX_WORKER_URL: http://latex-worker:8090
     volumes:
       - files:/app/storage
     ports:
@@ -74,6 +93,10 @@ services:
     depends_on: [backend]
     ports:
       - "4200:80"
+
+networks:
+  internal:
+    internal: true   # no internet access: the LaTeX sandbox cannot reach out
 
 volumes:
   pgdata:

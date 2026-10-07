@@ -15,6 +15,8 @@ import com.jobpilot.generation.EvidencePack;
 import com.jobpilot.generation.GenerationContext;
 import com.jobpilot.generation.llm.GenerationModels.CvDraftOut;
 import com.jobpilot.generation.llm.GenerationModels.LetterDraftOut;
+import com.jobpilot.generation.llm.GenerationModels.Translation;
+import com.jobpilot.generation.llm.GenerationModels.Translations;
 import com.jobpilot.generation.llm.GenerationModels.Verdict;
 import com.jobpilot.generation.llm.GenerationModels.Verdicts;
 import com.jobpilot.job.JobAnalysis;
@@ -28,21 +30,24 @@ import com.jobpilot.job.JobAnalysis;
 public class OllamaGenerationLlm implements GenerationLlm {
 
     private static final String[] TAGS = {"job_analysis", "evidence", "candidate", "company", "role", "tone",
-            "requirements", "previous_violations"};
+            "requirements", "previous_violations", "texts"};
 
     private final LlmClient llm;
     private final String cvPrompt;
     private final String letterPrompt;
     private final String judgePrompt;
+    private final String translatePrompt;
 
     public OllamaGenerationLlm(LlmClient llm,
                                @Value("classpath:prompts/cv-generation-system.txt") Resource cv,
                                @Value("classpath:prompts/letter-generation-system.txt") Resource letter,
-                               @Value("classpath:prompts/match-judge-system.txt") Resource judge) throws IOException {
+                               @Value("classpath:prompts/match-judge-system.txt") Resource judge,
+                               @Value("classpath:prompts/translate-system.txt") Resource translate) throws IOException {
         this.llm = llm;
         this.cvPrompt = cv.getContentAsString(StandardCharsets.UTF_8);
         this.letterPrompt = letter.getContentAsString(StandardCharsets.UTF_8);
         this.judgePrompt = judge.getContentAsString(StandardCharsets.UTF_8);
+        this.translatePrompt = translate.getContentAsString(StandardCharsets.UTF_8);
     }
 
     @Override
@@ -84,9 +89,29 @@ public class OllamaGenerationLlm implements GenerationLlm {
                         .append(text.length() > 300 ? text.substring(0, 300) + "…" : text).append('\n');
             });
         }
-        Verdicts v = llm.callJson(judgePrompt, block("requirements", sb.toString()), Verdicts.class,
+        // Judgment task (yes/partial/no): runs on the fast model when one is configured.
+        Verdicts v = llm.callJsonFast(judgePrompt, block("requirements", sb.toString()), Verdicts.class,
                 Function.identity(), "the match score");
         return v.verdicts() == null ? List.of() : v.verdicts();
+    }
+
+    @Override
+    public List<String> translate(List<String> texts, String language) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < texts.size(); i++) {
+            sb.append(i + 1).append(". ").append(texts.get(i).replace('\n', ' ')).append('\n');
+        }
+        // Writing task (quality matters): main model.
+        Translations t = llm.callJson(translatePrompt.replace("{{language}}", languageName(language)),
+                block("texts", sb.toString()), Translations.class, Function.identity(), "the translation");
+        String[] out = texts.toArray(String[]::new);
+        for (Translation tr : t.translations() == null ? List.<Translation>of() : t.translations()) {
+            if (tr != null && tr.id() != null && tr.id() >= 1 && tr.id() <= out.length
+                    && tr.text() != null && !tr.text().isBlank()) {
+                out[tr.id() - 1] = tr.text().strip();
+            }
+        }
+        return List.of(out);
     }
 
     static String analysisText(JobAnalysis a) {

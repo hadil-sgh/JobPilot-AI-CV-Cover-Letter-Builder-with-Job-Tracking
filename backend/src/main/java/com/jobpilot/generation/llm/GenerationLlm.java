@@ -9,7 +9,7 @@ import com.jobpilot.generation.llm.GenerationModels.LetterDraftOut;
 import com.jobpilot.generation.llm.GenerationModels.Verdict;
 
 /**
- * The three generation prompts (C: CV, D: letter, E: match judgment). One interface so tests can
+ * The generation prompts (C: CV, D: letter, E: match judgment, plus translation). One interface so tests can
  * replace the LLM with a single {@code @MockitoBean}.
  *
  * @param feedback   validator violations from a previous attempt (empty on the first try)
@@ -22,4 +22,10 @@ public interface GenerationLlm {
     LetterDraftOut writeLetter(GenerationContext ctx, EvidencePack pack, List<String> feedback, double creativity);
 
     List<Verdict> judgeMatch(GenerationContext ctx, EvidencePack pack);
+
+    /**
+     * Translates short texts to {@code language} ("en" / "fr"), same order and size as the input.
+     * A text the model skipped or emptied comes back unchanged.
+     */
+    List<String> translate(List<String> texts, String language);
 }

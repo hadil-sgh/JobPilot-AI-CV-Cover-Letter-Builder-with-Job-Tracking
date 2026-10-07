@@ -13,10 +13,11 @@ import {
   STEPS,
   progressOf,
 } from '../applications/applications.models';
-import { ApplicationsService } from '../applications/applications.service';
+import { ApplicationsService, Lang } from '../applications/applications.service';
 import { CvEditor } from './cv-editor';
 import { DocumentPreview } from './document-preview';
 import { LetterEditor } from './letter-editor';
+import { PdfPanel } from './pdf-panel';
 
 type Tab = 'cv' | 'letter';
 const POLL_MS = 3000;
@@ -27,7 +28,7 @@ const POLL_MS = 3000;
  */
 @Component({
   selector: 'app-editor-page',
-  imports: [RouterLink, CvEditor, LetterEditor, DocumentPreview],
+  imports: [RouterLink, CvEditor, LetterEditor, DocumentPreview, PdfPanel],
   template: `
     @if (app(); as a) {
       <div class="page-title-row">
@@ -121,12 +122,26 @@ const POLL_MS = 3000;
         </div>
       }
 
-      <ul class="nav nav-tabs mb-3" role="tablist">
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+      <ul class="nav nav-tabs flex-grow-1" role="tablist">
         <li class="nav-item"><button class="nav-link" [class.active]="tab() === 'cv'" type="button" role="tab" (click)="tab.set('cv')">
           <i class="bx bx-file me-1"></i>CV <span class="text-muted small">v{{ cvDoc()?.version }}</span></button></li>
         <li class="nav-item"><button class="nav-link" [class.active]="tab() === 'letter'" type="button" role="tab" (click)="tab.set('letter')">
-          <i class="bx bx-envelope me-1"></i>Motivation letter</button></li>
+          <i class="bx bx-envelope me-1"></i>Motivation letter <span class="text-muted small">v{{ letterDoc()?.version }}</span></button></li>
       </ul>
+        <div class="d-flex align-items-center gap-2">
+          @if (translating()) {
+            <small class="text-muted"><span class="spinner-border spinner-border-sm text-primary me-1"></span>Translating… this can take a few minutes</small>
+          }
+          <div class="btn-group btn-group-sm" role="group" aria-label="Document language">
+            @for (l of langs; track l) {
+              <button type="button" class="btn" [class.btn-primary]="currentLang() === l"
+                      [class.btn-outline-primary]="currentLang() !== l" [disabled]="translating() || !!busySection()"
+                      [attr.aria-pressed]="currentLang() === l" (click)="switchLanguage(l)">{{ l.toUpperCase() }}</button>
+            }
+          </div>
+        </div>
+      </div>
 
       <div class="row">
         <div class="col-xl-7">
@@ -139,8 +154,21 @@ const POLL_MS = 3000;
         </div>
         <div class="col-xl-5">
           <div class="position-sticky" style="top: 1rem">
-            <h6 class="text-muted text-uppercase small mb-2">Preview</h6>
-            @if (tab() === 'cv') { <app-document-preview [cv]="c" /> } @else { <app-document-preview [letter]="letter()" /> }
+            <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Preview mode">
+              <button type="button" class="btn" [class.btn-primary]="preview() === 'live'" [class.btn-outline-primary]="preview() !== 'live'"
+                      (click)="preview.set('live')">Live preview</button>
+              <button type="button" class="btn" [class.btn-primary]="preview() === 'pdf'" [class.btn-outline-primary]="preview() !== 'pdf'"
+                      (click)="preview.set('pdf')"><i class="bx bxs-file-pdf me-1"></i>PDF &amp; ATS</button>
+            </div>
+            @if (preview() === 'live') {
+              @if (tab() === 'cv') { <app-document-preview [cv]="c" /> } @else { <app-document-preview [letter]="letter()" /> }
+            } @else {
+              @if (tab() === 'cv' && cvDoc(); as d) {
+                <app-pdf-panel [doc]="d" [dirty]="dirty()" [fileName]="pdfName('CV')" (rendered)="onRendered($event)" />
+              } @else if (letterDoc(); as d) {
+                <app-pdf-panel [doc]="d" [dirty]="dirty()" [fileName]="pdfName('Letter')" (rendered)="onRendered($event)" />
+              }
+            }
           </div>
         </div>
       </div>
@@ -181,6 +209,12 @@ export class EditorPage {
   readonly loaded = signal(false);
   readonly error = signal<string | null>(null);
   readonly tab = signal<Tab>('cv');
+  readonly preview = signal<'live' | 'pdf'>('live');
+  readonly translating = signal(false);
+  readonly langs: Lang[] = ['en', 'fr'];
+  /** Language of the document shown in the current tab. */
+  readonly currentLang = computed<Lang>(() =>
+    ((this.tab() === 'cv' ? this.cvDoc() : this.letterDoc())?.language === 'fr' ? 'fr' : 'en'));
 
   readonly generating = computed(() => {
     const s = this.job()?.status;
@@ -274,6 +308,69 @@ export class EditorPage {
         this.error.set(errorMessage(e, 'Regeneration failed.'));
       },
     });
+  }
+
+  /**
+   * Shows the current tab's document in another language: the newest existing version in that
+   * language if there is one, otherwise a new translated version (after confirmation).
+   */
+  switchLanguage(lang: Lang): void {
+    const kind = this.tab();
+    const doc = kind === 'cv' ? this.cvDoc() : this.letterDoc();
+    if (!doc || lang === this.currentLang()) return;
+    if (this.dirty() && !confirm('Switching language discards your unsaved edits. Continue?')) return;
+    this.error.set(null);
+    const type = kind === 'cv' ? 'CV' : 'COVER_LETTER';
+    this.api.documents(this.id).subscribe({
+      next: (docs) => {
+        // The list is ordered newest version first.
+        const existing = docs.find((d) => d.type === type && (d.language === 'fr' ? 'fr' : 'en') === lang);
+        if (existing) {
+          this.api.document<CvContent & LetterContent>(existing.id).subscribe({
+            next: (d) => this.show(kind, d),
+            error: (e) => this.error.set(errorMessage(e)),
+          });
+          return;
+        }
+        const what = kind === 'cv' ? 'CV' : 'letter';
+        if (!confirm(`There is no ${lang === 'fr' ? 'French' : 'English'} ${what} yet. Translate it now? `
+            + 'This creates a new version and takes a few minutes (up to ~8 on a small GPU).')) return;
+        this.translating.set(true);
+        this.api.translate<CvContent & LetterContent>(doc.id, lang).subscribe({
+          next: (d) => {
+            this.translating.set(false);
+            this.show(kind, d);
+          },
+          error: (e) => {
+            this.translating.set(false);
+            this.error.set(errorMessage(e, 'Translation failed.'));
+          },
+        });
+      },
+      error: (e) => this.error.set(errorMessage(e)),
+    });
+  }
+
+  private show(kind: Tab, d: GeneratedDocument<CvContent & LetterContent>): void {
+    if (kind === 'cv') {
+      this.cvDoc.set(d as GeneratedDocument<CvContent>);
+      this.cv.set(d.content);
+    } else {
+      this.letterDoc.set(d as GeneratedDocument<LetterContent>);
+      this.letter.set(d.content);
+    }
+    this.dirty.set(false);
+  }
+
+  /** A render updates the document's template/options/ATS fields; its content is unchanged. */
+  onRendered(doc: GeneratedDocument<CvContent | LetterContent>): void {
+    if (doc.type === 'CV') this.cvDoc.set(doc as GeneratedDocument<CvContent>);
+    else this.letterDoc.set(doc as GeneratedDocument<LetterContent>);
+  }
+
+  pdfName(kind: string): string {
+    const a = this.app();
+    return `${kind} - ${a?.company ?? 'JobPilot'}.pdf`.replace(/[^\p{L}\p{N} ._-]/gu, '');
   }
 
   short(text: string): string {

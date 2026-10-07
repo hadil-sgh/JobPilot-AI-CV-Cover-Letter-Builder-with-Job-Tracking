@@ -203,6 +203,31 @@ class GenerationIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void translatesIntoANewVersionKeepingFacts() throws Exception {
+        String appId = fillProfileAndCreateApplication();
+        String cvId = waitForJob(call(post("/api/applications/" + appId + "/generate"), 202).get("id").asText(), "DONE")
+                .get("cvDocumentId").asText();
+        when(llm.translate(anyList(), eq("fr"))).thenAnswer(inv -> {
+            List<String> texts = inv.getArgument(0);
+            return texts.stream().map(t -> "FR " + t).toList();
+        });
+
+        JsonNode doc = postJson("/api/documents/" + cvId + "/translate", Map.of("language", "fr"), 200);
+        assertThat(doc.get("id").asText()).isNotEqualTo(cvId);
+        assertThat(doc.get("version").asInt()).isEqualTo(2);
+        assertThat(doc.get("language").asText()).isEqualTo("fr");
+        JsonNode content = doc.get("content");
+        assertThat(content.get("summary").asText()).startsWith("FR ");
+        assertThat(content.get("experience").get(0).get("title").asText()).isEqualTo("FR Software Engineering Intern");
+        assertThat(content.get("experience").get(0).get("organization").asText()).isEqualTo("Vermeg");
+        assertThat(content.get("skills").get(0).get("items").toString()).contains("\"Docker\"");
+        assertThat(call(get("/api/documents/" + cvId), 200).get("language").asText()).isEqualTo("en"); // original kept
+
+        postJson("/api/documents/" + doc.get("id").asText() + "/translate", Map.of("language", "fr"), 400);
+        postJson("/api/documents/" + cvId + "/translate", Map.of("language", "de"), 400);
+    }
+
+    @Test
     void regeneratesOneSection() throws Exception {
         String appId = fillProfileAndCreateApplication();
         String cvId = waitForJob(call(post("/api/applications/" + appId + "/generate"), 202).get("id").asText(), "DONE")

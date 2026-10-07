@@ -3,6 +3,82 @@
 Choices made where `docs/PROJECT.md` was silent, ambiguous, or could not be followed on this
 machine. Newest phase first.
 
+## Phase 5.1 — Language toggle and speed (2026-10-01)
+
+User feedback after testing Phase 5: generation is slow and some CVs mixed French and English.
+
+- **Language is decided by code, not by llama3.** `LanguageGuess` counts EN/FR function words; the
+  job's language comes from it when the text clearly leans one way (the model mislabelled an
+  English offer asking for "fluent French"). The model's answer is only a tie-breaker.
+- **Language check in the fact validator.** Summary and letter paragraphs written in the wrong
+  language become a review flag (golden case `06-wrong-language.json`). Short bullets are not
+  checked (too few words to decide).
+- **Mixing came from copied facts.** Titles, descriptions, skill group names and spoken languages
+  are copied from the profile (by design, so they cannot be invented); an English profile gave
+  English labels in a French CV. When the profile language differs from the job language, the
+  pipeline translates those labels (`DocumentTranslator`) after assembling the CV. Organisations,
+  dates, links, skill items and names are never sent to the model.
+- **FR ⇄ EN toggle** (not in PROJECT.md): `POST /api/documents/{id}/translate {language}` creates a
+  **new version** in the other language (original kept), re-validated in the target language, same
+  template and match score. Synchronous (a few minutes) like section regenerate. Texts already clearly in
+  the target language are skipped; texts the model drops come back unchanged; batches of 25.
+  Translation uses the main (8B) model: it is writing, quality matters.
+- **Speed: two models.** `OLLAMA_FAST_MODEL` (dev: `llama3.2:3b`) runs job analysis and the match
+  judgment (extraction / yes-partial-no); CV, letter, CV import and translation stay on 8B.
+  Empty = main model for everything (PROJECT.md default).
+- **Shorter CVs:** max 4 bullets per experience (was 5), 3 per project, 2-sentence summary — less
+  to generate, and closer to one page.
+- **`.gitattributes`** (`* text=auto eol=lf`): stops the LF/CRLF conversion warnings on Windows and keeps shell scripts and Dockerfiles LF.
+
+## Phase 5 — LaTeX PDF (2026-10-01)
+
+- **Engine: Tectonic (XeTeX) instead of TeX Live pdfLaTeX.** PROJECT.md allows "Tectonic or
+  TeX Live"; a TeX Live image is several GB, impossible on this connection. Alpine's `tectonic`
+  package is 6 MB; a build-time warm-up (`latex-worker/warmup/warmup.tex`, compiled at 10/11/12pt)
+  caches exactly the packages/fonts/formats the templates use; runtime uses `--only-cached`.
+  Image: ~150 MB. Alpine ships only the classic "V1" CLI (`tectonic file.tex`), not `-X compile`.
+  With XeTeX + OpenType Latin Modern, text is Unicode natively, so `glyphtounicode` (a pdfLaTeX
+  fix) is not needed; common ligatures are disabled (`Ligatures=NoCommon`) so "fi"/"fl" never
+  become U+FB01/U+FB02 in extracted text. Manifest `engine` is `xetex`.
+- **Worker sandbox** (compose): `internal` network (no internet; only the backend can reach it),
+  read-only root FS + 256 MB tmpfs, non-root UID 1000, `cap_drop: ALL`, `no-new-privileges`,
+  1 GB RAM, 1 CPU, 64 PIDs, 20 s compile timeout, one compile at a time, 2 MB request limit,
+  only `.tex/.sty/.cls` with safe names, fresh temp dir per job.
+- **Tested attacks against the real image**: `\immediate\write18{...}` → blocked by
+  `--untrusted` (nothing executed). `\input{/etc/passwd}` and `\openin` **did read the file**:
+  Tectonic's untrusted mode does not restrict absolute paths. Risk was low (the container holds
+  no secrets, and all user/LLM text is LaTeX-escaped so only our templates contain commands), but
+  the doc explicitly cites this attack, so the worker now rejects any submitted file using file
+  I/O / catcode / Lua primitives or absolute/parent paths (400). `LatexPipelineIT` asserts it.
+- **Template engine**: FreeMarker cannot use the doc's `<<= >>`/`<% %>` delimiters; its built-in
+  square-bracket syntax (`[=x]`, `[#if]`) is used instead (neither `[=` nor `[#` occurs in
+  LaTeX). A custom `LatexOutputFormat` makes **auto-escaping the default for every
+  interpolation**, so model text cannot reach the .tex unescaped even if a template author
+  forgets. URLs are the one pre-escaped value (`\href` needs percent-encoding + `\%`/`\#`), passed
+  as FreeMarker markup. `?new`/`?api` are disabled in templates.
+- **Options are validated against the manifest** (enum whitelist, `#RRGGBB` colours, bool,
+  section-order lists restricted to the template's sections); unknown keys are ignored. The
+  resolved options are stored on the document so any CV can be re-rendered exactly.
+- **ATS self-check** (PDFBox): headings in order (30), email/phone as plain text (25), clean text
+  — no ligature glyphs, no U+FFFD / `(cid:` garbage (25), page count ≤ manifest `maxPages` (20).
+  Score + report stored in `ats_score`/`ats_report`; behind `features.ats-check` (now `true`).
+- **Stale PDFs**: any content change (edit, section regenerate) clears `pdf_path`, `latex_source`
+  and the ATS result; template + options are kept, the editor asks to re-render.
+- Rendering is synchronous (a few seconds per document); PDFs stored under
+  `storage/pdf/<applicationId>/<documentId>.pdf`. `*IT` tests (real worker via Testcontainers,
+  built from `../latex-worker`) run in `mvn verify` through maven-failsafe.
+- **Keeping the 8B model on a 4 GB GPU** (user choice after measuring): `llama3` 8B Q4 loads as
+  6.1 GB — 2.7 GB on the GPU, the rest in system RAM. Imports failed (> 10 min → 504) because the
+  PC had < 1.5 GB free: Ollama's idle runner held 8 GB and Docker's WSL VM ~6 GB. Changes on the
+  user's machine (approved): `%USERPROFILE%\.wslconfig` `memory=3GB` (Docker VM 7.6 → 2.8 GB) and
+  user env vars `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0` (smaller context cache).
+  In the app: `OLLAMA_FALLBACK_MODEL=llama3.2:3b` — when Ollama reports "requires more system
+  memory", `LlmClient` retries that one call on the fallback instead of failing (the 3B model
+  is weaker at writing letters, so the 8B stays the default). Backend HTTP read timeout lowered
+  to 9 min (< nginx 10 min) so the backend, not nginx, answers with a clear message; the
+  frontend explains 504s. The rest of the RAM is used by the user's own apps; closing the browser
+  or Notion before generating lets the 8B model run.
+
 ## Phase 4 — Generation (2026-10-01)
 
 - **Facts by construction, not by validation.** Prompt C returns only `{summary, experience:
@@ -52,7 +128,7 @@ machine. Newest phase first.
   are always taken from the stored document (to change a fact, edit the profile). Every save and
   regenerate re-runs the fact check, so review flags always describe the current text.
 - **Section regenerate** (`POST /api/documents/{id}/regenerate-section`, sections `summary`,
-  `skills`, `experience:E1`, `projects:P1`, `letter`) is synchronous (~1–2 min) and uses
+  `skills`, `experience:E1`, `projects:P1`, `letter`) is synchronous (a few minutes) and uses
   temperature 0.7 to produce a different version; only the requested section is replaced.
 - **Preview**: escaped HTML preview next to the editor until Phase 5 provides the PDF.
 - **Fail fast on LLM errors**: first real run hit Ollama's "model requires more system memory

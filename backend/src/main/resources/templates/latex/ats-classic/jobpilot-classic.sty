@@ -1,0 +1,37 @@
+% JobPilot "ATS Classic" style, shared by cv.tex and letter.tex so both look the same.
+% ATS rules (PROJECT.md 3.9): single column, real text (XeTeX + OpenType Latin Modern), common
+% ligatures off (no "fi" glyphs that some parsers extract as U+FB01), no tables or images for layout.
+% Packages used here must also be in latex-worker/warmup/warmup.tex (offline cache).
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{jobpilot-classic}[2026/10/01 v1.0.0 JobPilot ATS Classic]
+
+\RequirePackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont = lmroman10-bold.otf,
+  ItalicFont = lmroman10-italic.otf,
+  BoldItalicFont = lmroman10-bolditalic.otf,
+  Ligatures = NoCommon]
+\setsansfont{lmsans10-regular.otf}[BoldFont = lmsans10-bold.otf, Ligatures = NoCommon]
+
+\RequirePackage{xcolor}
+\RequirePackage{enumitem}
+\RequirePackage{titlesec}
+\RequirePackage[hidelinks]{hyperref}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\raggedright
+
+% Section headings: plain text, accent colour, thin rule. Spacing comes from the template's density option.
+\titleformat{\section}{\sffamily\bfseries\large\color{accent}}{}{0pt}{}[\vspace{0.2ex}{\color{accent}\titlerule}]
+\titlespacing*{\section}{0pt}{\jpsectionbefore}{\jpsectionafter}
+
+\setlist[itemize]{leftmargin=1.1em, topsep=1pt, itemsep=\jpitemsep, parsep=0pt, partopsep=0pt, label=\textbullet}
+
+% \jpentry{title and organisation}{dates}
+\newcommand{\jpentry}[2]{\par\textbf{#1}\hfill{\small #2}\par}
+% \jpdetail{description line under an entry}
+\newcommand{\jpdetail}[1]{{\small\itshape #1}\par}
+
+\endinput

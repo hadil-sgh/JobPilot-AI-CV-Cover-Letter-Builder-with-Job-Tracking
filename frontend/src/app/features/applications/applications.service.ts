@@ -2,7 +2,14 @@ import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
-import { Application, CvContent, GeneratedDocument, GenerationJob, LetterContent } from './applications.models';
+import {
+  Application,
+  CvContent,
+  GeneratedDocument,
+  GenerationJob,
+  LetterContent,
+  TemplateManifest,
+} from './applications.models';
 
 @Injectable({ providedIn: 'root' })
 export class ApplicationsService {
@@ -48,9 +55,34 @@ export class ApplicationsService {
     return this.http.put<GeneratedDocument<T>>(`/api/documents/${encodeURIComponent(docId)}`, { content });
   }
 
+  templates(): Observable<TemplateManifest[]> {
+    return this.http.get<TemplateManifest[]>('/api/templates');
+  }
+
+  /** Renders the document to PDF with a template and runs the ATS check (a few seconds). */
+  render<T extends CvContent | LetterContent>(
+    docId: string,
+    template: string,
+    options: Record<string, unknown>,
+  ): Observable<GeneratedDocument<T>> {
+    return this.http.post<GeneratedDocument<T>>(`/api/documents/${encodeURIComponent(docId)}/render`, { template, options });
+  }
+
+  /** The rendered PDF as a Blob (fetched with the auth header, then shown via an object URL). */
+  pdf(docId: string): Observable<Blob> {
+    return this.http.get(`/api/documents/${encodeURIComponent(docId)}/pdf`, { responseType: 'blob' });
+  }
+
   regenerate<T extends CvContent | LetterContent>(docId: string, section: string): Observable<GeneratedDocument<T>> {
     return this.http.post<GeneratedDocument<T>>(`/api/documents/${encodeURIComponent(docId)}/regenerate-section`, {
       section,
     });
   }
+
+  /** Translates a document (EN ⇄ FR) into a new version. Synchronous on the server: a few minutes. */
+  translate<T extends CvContent | LetterContent>(docId: string, language: Lang): Observable<GeneratedDocument<T>> {
+    return this.http.post<GeneratedDocument<T>>(`/api/documents/${encodeURIComponent(docId)}/translate`, { language });
+  }
 }
+
+export type Lang = 'en' | 'fr';

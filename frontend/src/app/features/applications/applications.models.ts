@@ -90,6 +90,21 @@ export interface LetterContent {
   review: ReviewFlag[];
 }
 
+export interface AtsCheck {
+  id: string;
+  label: string;
+  passed: boolean;
+  detail: string;
+  weight: number;
+}
+
+export interface AtsReport {
+  score: number;
+  pageCount: number;
+  checks: AtsCheck[];
+  extractedPreview: string;
+}
+
 export interface GeneratedDocument<T = CvContent | LetterContent> {
   id: string;
   applicationId: string;
@@ -97,10 +112,51 @@ export interface GeneratedDocument<T = CvContent | LetterContent> {
   version: number;
   language: string;
   template: string | null;
+  templateVersion: string | null;
+  templateOptions: Record<string, unknown> | null;
   matchScore: number | null;
+  atsScore: number | null;
+  atsReport: AtsReport | null;
+  hasPdf: boolean;
   createdAt: string;
   content: T | null;
 }
+
+/** templates/latex/<id>/manifest.json as served by GET /api/templates. */
+export interface OptionSpec {
+  type: 'enum' | 'color' | 'bool' | 'list';
+  label: string | null;
+  values: string[] | null;
+  default: unknown;
+}
+
+export interface TemplateManifest {
+  id: string;
+  name: string;
+  version: string;
+  description: string | null;
+  atsSafe: boolean;
+  engine: string;
+  maxPages: number;
+  languages: string[];
+  sections: string[];
+  options: Record<string, OptionSpec>;
+}
+
+/** Initial option values: what the document was last rendered with, else the manifest defaults. */
+export function initialOptions(manifest: TemplateManifest, saved: Record<string, unknown> | null): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, spec] of Object.entries(manifest.options ?? {})) {
+    const value = saved?.[key];
+    out[key] = value !== undefined && value !== null ? value : spec.default;
+  }
+  return out;
+}
+
+export const SECTION_LABELS: Record<string, string> = {
+  summary: 'Summary', experience: 'Experience', projects: 'Projects', education: 'Education',
+  skills: 'Skills', certifications: 'Certifications', languages: 'Languages',
+};
 
 export const STEPS: { key: NonNullable<GenerationJob['step']>; label: string }[] = [
   { key: 'EVIDENCE', label: 'Collecting evidence from your profile' },

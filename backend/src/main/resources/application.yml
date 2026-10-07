@@ -11,6 +11,9 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  freemarker:
+    enabled: false                # no MVC views; LaTeX templates use their own Configuration
+    check-template-location: false
   servlet:
     multipart:
       max-file-size: 5MB
@@ -18,7 +21,7 @@ spring:
   http:
     client:
       connect-timeout: 10s
-      read-timeout: 10m         # local 8B model on a 4 GB GPU: ~2 min per CV, more on CPU
+      read-timeout: 9m          # must stay below nginx's 600 s so the backend can answer with a clear error
   ai:
     # Fail fast: the default (10 attempts, back-off up to minutes) left a job "running" for 20+ min
     # when Ollama could not load the model. One retry is enough for a transient hiccup.
@@ -63,10 +66,17 @@ jobpilot:
     access-token-ttl: 15m
     refresh-token-ttl: 7d
   storage-dir: ${STORAGE_DIR:./storage}
+  latex-worker-url: ${LATEX_WORKER_URL:http://localhost:8090}
+  llm:
+    # Used automatically when Ollama reports not enough RAM for the main model (empty = no fallback).
+    fallback-model: ${OLLAMA_FALLBACK_MODEL:}
+    # Optional smaller model for simple tasks (job analysis, match scoring). Empty = main model.
+    fast-model: ${OLLAMA_FAST_MODEL:}
 
 # Feature flags: half-built features ship switched off (PROJECT.md 3.9, point 4).
+
 features:
-  ats-check: false
+  ats-check: true
   stats: false
   notion: false
   email: false

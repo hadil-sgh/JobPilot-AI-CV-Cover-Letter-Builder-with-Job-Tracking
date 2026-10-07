@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-/** Raw (untrusted) outputs of prompts C, D and E. */
+/** Raw (untrusted) outputs of prompts C, D, E and the translation prompt. */
 public final class GenerationModels {
 
     private GenerationModels() {
@@ -33,5 +33,13 @@ public final class GenerationModels {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Verdict(Integer id, String verdict) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Translations(List<Translation> translations) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Translation(Integer id, String text) {
     }
 }

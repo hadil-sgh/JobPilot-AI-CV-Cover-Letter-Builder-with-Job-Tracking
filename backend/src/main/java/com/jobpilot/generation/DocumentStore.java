@@ -24,6 +24,15 @@ public class DocumentStore {
         this.json = json;
     }
 
+    /** Saves {@code content} as the next version of {@code source}'s type, in another language. */
+    @Transactional
+    public GeneratedDocument saveDerivedVersion(GeneratedDocument source, String language, Object content) {
+        GeneratedDocument doc = new GeneratedDocument(source.getApplicationId(), source.getType(),
+                documents.maxVersion(source.getApplicationId(), source.getType()) + 1, language, json.valueToTree(content));
+        doc.copyTemplateFrom(source);
+        return documents.save(doc);
+    }
+
     @Transactional
     public Saved saveNewVersions(UUID applicationId, CvContent cv, LetterContent letter) {
         GeneratedDocument cvDoc = new GeneratedDocument(applicationId, DocumentType.CV,
